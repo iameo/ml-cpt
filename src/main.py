@@ -112,6 +112,8 @@ def model_parameter(classifier):
         param["verbose"] = 1
 
     return param
+
+
     
 def build_model(classifier, params, seed):
     clf = None
@@ -128,7 +130,7 @@ def build_model(classifier, params, seed):
             n_jobs=params["n_jobs"], random_state=seed, verbose=params["verbose"])
     if classifier == "XGBOOST":
         from xgboost import XGBClassifier
-        clf = XGBoostClassifier(max_depth=params['max_depth'],\
+        clf = XGBClassifier(max_depth=params['max_depth'],\
             n_jobs=params["n_jobs"], random_state=seed, verbose=params["verbose"])
     
     return clf
