@@ -306,64 +306,6 @@ df.select_dtypes(include=['object']).columns
     else:
         st.write('INVALID ARGUMENT! ')
 
-# st.title('ML FOR BEGINNERS')
-
-# dataset_ = st.sidebar.selectbox('Select dataset', ('Iris', 'Breast'))
-# task_ = st.sidebar.selectbox('select task', ('EDA', 'TRAIN-TEST'))
-# classifier_ = st.sidebar.selectbox('Select Algorithm', ('CATBOOST', 'KNN', 'SVM', 'LOG. REGRESSION'))
-
-
-# def fetch_dataset(name):
-#     data = None
-#     if name == 'Iris':
-#         data = datasets.load_iris()
-#     elif name == 'Breast':
-#         print('breast')
-#         data = datasets.load_breast_cancer()
-#     else:
-#         st.write("Data can not be None!")
-#     x = data.data
-#     y = data.target
-#     return x,y
-
-# x, y = fetch_dataset(dataset_)
-# st.dataframe(x)
-# st.write('SHAPE: ', x.shape)
-
-# target_len = len(np.unique(y))
-# if target_len <= 20: #test case - classification
-#     st.write('ML TYPE - SUPERVISED CLASSIFICATION TASK')
-# else:
-#     st.write('ML TYPE - SUPERVISED REGRESSION TASK')
-
-# st.title('EDA')
-# num_df = pd.DataFrame(x).select_dtypes(include=[np.number]).shape[1]
-# obj_df = pd.DataFrame(x).select_dtypes(include='object').shape[1]
-# if num_df:
-#     st.write('Numerical column count: ', num_df)
-#     st.code('''pd.DataFrame(x).select_dtypes(include='float').shape''', language='python')
-# if obj_df:
-#     st.write('Categorical column count: ', obj_df)
-#     st.code('''pd.DataFrame(x).select_dtypes(include='object').shape''', language='python')
-#     st.write('(you may want to encode the objects)')
-
-# boxplot_fig = plt.figure()
-# sns.boxplot(data = x, orient='h')
-# st.pyplot(boxplot_fig)
-
-# boxplot_code = '''plt.figure(); sns.boxplot(data=x, orient='h')'''
-# st.code(boxplot_code, language='python')
-
-
-# hist_fig, ax = plt.subplots()
-# ax.hist(x, bins=20)
-# st.pyplot(hist_fig)
-
-# with st.echo():
-#     df = pd.DataFrame(x)
-# st.write('echo')
-
-
 
 if __name__ == "__main__":
     main()
