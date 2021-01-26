@@ -30,6 +30,67 @@ import urllib
 plt.rcParams.update({'figure.max_open_warning':0})
 sns.set_theme(style="darkgrid")
 
+
+MODELS = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
+SCALER = ["STANDARDSCALER", "MIN-MAX SCALER"]
+
+
+#borrowed from kaggle(@arjanso)
+@st.cache(suppress_st_warning=True)
+def reduce_mem_usage(props):
+    start_mem_usg = props.memory_usage().sum() / 1024**2 
+    NAlist = []
+    for col in props.columns:
+        if props[col].dtype != object:  # Exclude strings
+
+            # make variables for Int, max and min
+            IsInt = False
+            mx = props[col].max()
+            mn = props[col].min()
+            
+            # Integer does not support NA, therefore, NA needs to be filled
+            if not np.isfinite(props[col]).all(): 
+                NAlist.append(col)
+                props[col].fillna(mn-1,inplace=True)  
+                   
+            # test if column can be converted to an integer
+            asint = props[col].fillna(0).astype(np.int64)
+            result = (props[col] - asint)
+            result = result.sum()
+            if result > -0.01 and result < 0.01:
+                IsInt = True
+
+            
+            # Make Integer/unsigned Integer datatypes
+            if IsInt:
+                if mn >= 0:
+                    if mx < 255:
+                        props[col] = props[col].astype(np.uint8)
+                    elif mx < 65535:
+                        props[col] = props[col].astype(np.uint16)
+                    elif mx < 4294967295:
+                        props[col] = props[col].astype(np.uint32)
+                    else:
+                        props[col] = props[col].astype(np.uint64)
+                else:
+                    if mn > np.iinfo(np.int8).min and mx < np.iinfo(np.int8).max:
+                        props[col] = props[col].astype(np.int8)
+                    elif mn > np.iinfo(np.int16).min and mx < np.iinfo(np.int16).max:
+                        props[col] = props[col].astype(np.int16)
+                    elif mn > np.iinfo(np.int32).min and mx < np.iinfo(np.int32).max:
+                        props[col] = props[col].astype(np.int32)
+                    elif mn > np.iinfo(np.int64).min and mx < np.iinfo(np.int64).max:
+                        props[col] = props[col].astype(np.int64)    
+            
+            # Make float datatypes 32 bit
+            else:
+                props[col] = props[col].astype(np.float32)
+    mem_usg = props.memory_usage().sum() / 1024**2 
+    mem_reduced = 100*mem_usg/start_mem_usg
+    return props, mem_reduced
+
+
+
 #parse datetime columns
 def date_parser_v1(df, date_cols):
     for feat in date_cols:
@@ -106,9 +167,9 @@ def model_parameter(classifier):
         eval_metric = st.sidebar.selectbox("EVAL_METRIC", ["F1", "AUC"])
         param["eval_metric"] = eval_metric
         param['learning_rate'] = lr
-    if classifier == "SVM":
-        C = st.sidebar.slider('C', 0.001, 10.0, step=0.1)
-        param['C'] = C
+    if classifier == "KNN":
+        K = st.sidebar.slider('n_neighbor', 1, 10, step=1)
+        param['K'] = K
     if classifier == "RANDOMFOREST":
         depth = st.sidebar.slider('MAX_DEPTH', 1, 40, step=1)
         param['n_jobs'] = -1
@@ -130,7 +191,7 @@ def build_model(classifier, params, seed):
             random_state=seed, eval_metric=params["eval_metric"], silent=True)
     if classifier == "KNN":
         from sklearn.neighbors import KNeighborsClassifier
-        clf = KNeighborsClassifier(n_neighbors=params['K'], random_state=seed)
+        clf = KNeighborsClassifier(n_neighbors=params['K'])
     if classifier == "RANDOMFOREST":
         from sklearn.ensemble import RandomForestClassifier
         clf = RandomForestClassifier(max_depth=params['max_depth'],\
@@ -141,6 +202,28 @@ def build_model(classifier, params, seed):
             n_jobs=params["n_jobs"], random_state=seed)
     
     return clf
+
+
+@st.cache(suppress_st_warning=True)
+def initialize_model(model, Xtrain_file, ytrain_file, test_file, test_dataframe, target_var_, seed):
+    X_train, X_test, y_train, y_test = train_test_split(Xtrain_file, ytrain_file, test_size=.4, random_state=seed)
+    X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=.7, random_state=seed)
+    st.write("BUILDING MODEL WITH: ", model , model.get_params())
+    st.write("TRAIN-VAL-TEST SPLIT: 60%:30%:10%")
+    st.write(X_train.shape, X_val.shape, X_test.shape)
+    model.fit(X_train, y_train)
+    y_val_ = model.predict(X_val)
+    y_test_ = model.predict(X_test)
+    st.write("VALIDATION PARTITION REPORT")
+    accuracy_val = metrics.classification_report(y_val_, y_val)
+    st.write(accuracy_val)
+    st.write("TEST PARTITION REPORT")
+    accuracy_test = metrics.classification_report(y_test_, y_test)
+    st.write(accuracy_test)
+
+    test_dataframe[target_var_] =  model.predict(test_file)
+
+    return test_dataframe, y_test_, y_test
 
 
 def download_csv(dataframe, name, info):
@@ -165,6 +248,13 @@ def main():
     if option == options[0]:
         pass
     elif option == options[1]:
+        
+        #ensuring producibility
+        seed = st.sidebar.slider('SEED', 1, 50, step=1)
+
+        np.random.seed(seed=seed)
+        np.random.RandomState(seed=seed)
+        
         welcome_text.empty()
         try:
             train_df = st.file_uploader("Upload Train dataset: ", type=['csv','xlsx'])
@@ -180,6 +270,8 @@ def main():
             train["marker"] = "train"
             test["marker"] = "test"
             df = pd.concat([train, test], axis=0)
+            df, mem_reduced = reduce_mem_usage(df)
+            st.write("MEMORY SAVED: ", mem_reduced)
             df = df.loc[:, ~df.columns.duplicated()].drop_duplicates()
             keep_cols = df.columns
             datetime_ = st.multiselect('SELECT FEATURES OF TYPE DATE: ', df.columns.tolist(), date_catcher(df))
@@ -335,20 +427,19 @@ df.select_dtypes(include=['object']).columns
             dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
         
 
-            scaler = ["STANDARDSCALER", "MIN-MAX SCALER"]
-            scaler_option = st.selectbox("SCALE DATA USING: ", scaler)
-            if scaler_option == scaler[0]:
+            scaler_option = st.selectbox("SCALE DATA USING: ", SCALER)
+            if scaler_option == SCALER[0]:
                 from sklearn.preprocessing import StandardScaler
                 ss = StandardScaler()
                 Xtrain = pd.DataFrame(ss.fit_transform(dum_train), columns=dum_train.columns)
                 test = pd.DataFrame(ss.transform(dum_test), columns=dum_test.columns)
-            elif scaler_option == scaler[1]:
+            elif scaler_option == SCALER[1]:
                 from sklearn.preprocessing import MinMaxScaler
                 mm = MinMaxScaler()
                 Xtrain = pd.DataFrame(mm.fit_transform(dum_train), columns=dum_train.columns)
                 test = pd.DataFrame(mm.transform(dum_test), columns=dum_test.columns)
             else:
-                st.write("NO SCALER SELECTED")
+                st.write("NO SCALER METHOD SELECTED")
 
             st.subheader("Train Data")
             
@@ -364,41 +455,23 @@ df.select_dtypes(include=['object']).columns
 
             st.header('TRAINING/TESTING SECTION')
 
-            models = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
-            model = st.sidebar.selectbox('Select option: ', models)
-            seed = st.sidebar.slider('SEED', 1, 50, step=1)
+            model = st.sidebar.selectbox('Select Algorithm: ', MODELS)
+            
 
             params = model_parameter(model)
             model_ = build_model(model, params, seed)
 
-            #ensuring producibility
-            np.random.seed(seed=seed)
-            np.random.RandomState(seed=seed)
 
-            X_train, X_test, y_train, y_test = train_test_split(Xtrain, dum_train_y, test_size=.4, random_state=seed)
-            X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=.7, random_state=seed)
-            st.write("BUILDING MODEL WITH: ", model , model_.get_params())
-            st.write("TRAIN-VAL-TEST SPLIT: 60%:30%:10%")
-            st.write(X_train.shape, X_val.shape, X_test.shape)
-            model_.fit(X_train, y_train)
-            y_val_ = model_.predict(X_val)
-            y_test_ = model_.predict(X_test)
-            st.write("VALIDATION PARTITION REPORT")
-            accuracy_val = metrics.classification_report(y_val_, y_val)
-            st.write(accuracy_val)
-            st.write("TEST PARTITION REPORT")
-            accuracy_test = metrics.classification_report(y_test_, y_test)
-            st.write(accuracy_test)
+            test_resp, y_test_, y_test = initialize_model(model=model_, Xtrain_file=Xtrain, ytrain_file=dum_train_y, test_file=test, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
 
-            st.write("TEST ACCURACY: ", metrics.accuracy_score(y_test_, y_test))
-            st.write("TEST F1 SCORE: ", metrics.f1_score(y_test_, y_test))
-
-            test_id[target_col[0]] =  model_.predict(test)
-            if test_id is not None:
+            if test_resp is not None and y_test_ is not None and y_test is not None:
+                st.write("TEST ACCURACY: ", metrics.accuracy_score(y_test_, y_test))
+                st.write("TEST F1 SCORE: ", metrics.f1_score(y_test_, y_test))
                 # pred_dict = {"ID": np.array(test_id.values), target_col[0]: model_.predict(test)}
                 # test_pred = pd.DataFrame.from_dict(pred_dict)
-                st.write(test_id.head(1000))
-                st.write(test_id.shape)
+                st.write("")
+                st.write(test_resp.head(1000))
+                st.write(test_resp.shape)
                 st.write("")
                 st.write("MODEL ESTABLISHED. YAY!")
                 st.balloons()
