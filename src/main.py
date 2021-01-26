@@ -149,9 +149,16 @@ def download_csv(dataframe, name, info):
     return f'<a href="data:file/csv_file;base64,{b64}" download="{name}">{info}</a>'
 
 
+def get_content(path):
+    url = ''
+    resp = urllib.request.urlopen(url)
+    return resp.read().decode("utf-8")
+
 
 def main():
     st.title('MACHINE LEARNING FOR YOU..')
+
+    # welcome_text = st.markdown(get_content("welcome.md"))
     options = ['WELCOME', 'EXPLORE']
     option = st.sidebar.selectbox('Select option: ', options)
 
@@ -313,7 +320,7 @@ df.select_dtypes(include=['object']).columns
             st.write("MONOTONIC AND UNIQUE FEATURES REMOVED")
 
 
-            not_dummy = [target_col[0], "target", "marker", "claim", "pred"]
+            not_dummy = [target_col[0], "target", "marker", "claim", "prediction", "response"]
             exclude_cols = [col for col in new_df.columns if col not in not_dummy]
             exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
             dum_df = pd.get_dummies(new_df, columns=exclude_cols, drop_first=True)
