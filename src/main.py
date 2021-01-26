@@ -284,11 +284,11 @@ df.select_dtypes(include=['object']).columns
             st.write("SHAPE: ", new_df.shape)
             if new_df.shape[1] > 50:
                 st.write("ABSOLUTE CORRELATION WITH TARGET VARIABLE")
-                st.write(full_train.corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
+                st.write(new_df[new_df["marker"] == "train"].corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
                 st.write("[correlation is not causation]")
             else:
                 heatmap_fig, ax=plt.subplots()
-                sns.heatmap(full_train.corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
+                sns.heatmap(new_df[new_df["marker"] == "train"].corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
                 st.pyplot(heatmap_fig)
             
 
