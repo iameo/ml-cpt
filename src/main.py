@@ -22,6 +22,7 @@ import sklearn
 import sys
 
 import datetime
+import base64
 
 
 
@@ -96,6 +97,7 @@ def remove_mono_unique(dataframe, cols):
             continue
     return dataframe
 
+
 #set parameter
 def model_parameter(classifier):
     param = dict()
@@ -139,6 +141,13 @@ def build_model(classifier, params, seed):
             n_jobs=params["n_jobs"], random_state=seed)
     
     return clf
+
+
+def download_csv(dataframe, name, info):
+    csv_file = dataframe.to_csv(index=False)
+    b64 = base64.b64encode(csv_file.encode()).decode()
+    return f'<a href="data:file/csv_file;base64,{b64}" download="{name}">{info}</a>'
+
 
 
 def main():
@@ -188,7 +197,7 @@ def main():
             st.write("SHAPE: ", df.shape)
 
             id_ = st.multiselect('SELECT *ONE* FEATURE FOR FINAL TEST FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
-            
+            test_id = test[id_] #store ID for test dataframe
             train_data = df[df["marker"] == "train"]
             # test_data = df[df["marker"] == "test"]
             target_col = st.multiselect("Choose preferred target column: ", train.columns.tolist(), ["target" if "target" in train.columns else train.columns.tolist()[-1]])
@@ -295,7 +304,7 @@ df.select_dtypes(include=['object']).columns
             st.dataframe(new_df.head(50))
             st.write(new_df.shape)
 
-            test_id = new_df[new_df["marker"] == "test"][id_] #store ID for test dataframe
+            #test_id = new_df[new_df["marker"] == "test"][id_] #store ID for test dataframe
 
             #remove monotonic or unique features
             new_df = remove_mono_unique(dataframe=new_df, cols=new_df.columns)
@@ -334,12 +343,16 @@ df.select_dtypes(include=['object']).columns
                 st.write("NO SCALER SELECTED")
 
             st.subheader("Train Data")
+            
             st.dataframe(Xtrain.head(1000))
             st.write(Xtrain.shape)
+            st.markdown(download_csv(Xtrain, "cpt_train.csv", info="DOWNLOAD TRAIN FILE"), unsafe_allow_html=True)
             
             st.subheader("Test Data")
+            
             st.dataframe(test.head(1000))
             st.write(test.shape)
+            st.markdown(download_csv(test, "cpt_test.csv", info="DOWNLOAD TEST FILE"), unsafe_allow_html=True)
 
             st.header('TRAINING/TESTING SECTION')
 
@@ -379,7 +392,7 @@ df.select_dtypes(include=['object']).columns
                 st.write(test_id.head(1000))
                 st.write(test_id.shape)
                 st.write("")
-                st.write("MODEL ESTABLISHED")
+                st.write("MODEL ESTABLISHED. YAY!")
                 st.balloons()
             else:
                 st.write("YOUR MODEL FAILED YTO COMPLETE")
