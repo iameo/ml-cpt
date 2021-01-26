@@ -336,7 +336,7 @@ df.select_dtypes(include=['object']).columns
             test_data = df[df["marker"] == "test"]
 
             train_data = train_data.dropna(subset=[target_col[0]])
-            test_data[target_col[0]].fillna(value="N/A", inplace=True) #
+            test_data.loc[test_data["marker"] == "test", target_col[0]] = "N/A" #
             pre_miss_df = pd.concat([train_data, test_data], axis=0)
             target_var = train_data[target_col[0]]
             missing_df = pd.DataFrame(data=np.round((pre_miss_df.isnull().sum()/pre_miss_df.shape[0])*100,1), columns=["missing (%)"])
