@@ -271,7 +271,7 @@ def main():
             test["marker"] = "test"
             df = pd.concat([train, test], axis=0)
             df, mem_reduced = reduce_mem_usage(df)
-            st.write("MEMORY SAVED: ", mem_reduced)
+            st.write("MEMORY SAVED: ", mem_reduced,"MB")
             df = df.loc[:, ~df.columns.duplicated()].drop_duplicates()
             keep_cols = df.columns
             datetime_ = st.multiselect('SELECT FEATURES OF TYPE DATE: ', df.columns.tolist(), date_catcher(df))
