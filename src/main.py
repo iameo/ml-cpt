@@ -26,7 +26,7 @@ import datetime
 
 
 
-
+plt.rcParams.update({'figure.max_open_warning':0})
 sns.set_theme(style="darkgrid")
 
 #parse datetime columns
@@ -54,16 +54,22 @@ def date_catcher(dataframe):
 
 def id_catcher(dataframe):
     df_cols = dataframe.columns
-    cols = [col if 'id' in col.lower() else list(df_cols) for col in df_cols]
+    cols = [col if "id" in col.lower() else df_cols[0] for col in df_cols]
     return cols
 
 
-@st.cache(suppress_st_warning=True)
+# @st.cache(suppress_st_warning=True)
 def check_relationship(cols, target, dataframe):
-    for feat in cols:
+    #plot first 15 features that meets the condition
+    df_shape = dataframe.shape[0]
+    if df_shape >= 1000:
+        n = 1000/5 #divide n by 4 and plot if it meets the condition
+    else:
+        n = 800/5
+    for feat in cols[:15]:
         feat_target_plot, r_ax = plt.subplots()
         #do not plot target against target or IDs against target(too many unique values)
-        if feat.lower() == target.lower() or "id" in feat.lower() or len(set(dataframe[feat])) >= 40:
+        if feat.lower() == target.lower() or "id" in feat.lower() or len(set(dataframe[feat])) >= int(n/4) or dataframe[feat].is_unique or dataframe[feat].is_monotonic:
             continue
         else:
             sns.barplot(data = dataframe, x=feat, y=target, ax=r_ax)
@@ -77,9 +83,11 @@ def remove_features(dataframe, cols):
     return dataframe
 
 
+
+
 #remove features that are unique or monotonic
 @st.cache(suppress_st_warning=True)
-def remove_big_unique(dataframe, cols):
+def remove_mono_unique(dataframe, cols):
     cols = list(cols)
     for col in cols:
         if dataframe[col].is_unique or dataframe[col].is_monotonic:
@@ -89,7 +97,6 @@ def remove_big_unique(dataframe, cols):
     return dataframe
 
 #set parameter
-@st.cache(allow_output_mutation=True)
 def model_parameter(classifier):
     param = dict()
     if classifier == "CATBOOST":
@@ -97,7 +104,6 @@ def model_parameter(classifier):
         eval_metric = st.sidebar.selectbox("EVAL_METRIC", ["F1", "AUC"])
         param["eval_metric"] = eval_metric
         param['learning_rate'] = lr
-        param["verbose"] = True
     if classifier == "SVM":
         C = st.sidebar.slider('C', 0.001, 10.0, step=0.1)
         param['C'] = C
@@ -105,34 +111,32 @@ def model_parameter(classifier):
         depth = st.sidebar.slider('MAX_DEPTH', 1, 40, step=1)
         param['n_jobs'] = -1
         param['max_depth'] = depth
-        param["verbose"] = 1
     if classifier == "XGBOOST":
         depth = st.sidebar.slider('MAX_DEPTH', 1, 40, step=1)
         param['n_jobs'] = -1
         param['max_depth'] = depth
-        param["verbose"] = 1
 
     return param
 
 
-@st.cache(allow_output_mutation=True)
+
 def build_model(classifier, params, seed):
     clf = None
     if classifier == "CATBOOST":
         from catboost import CatBoostClassifier
         clf = CatBoostClassifier(learning_rate=params['learning_rate'],\
-            random_state=seed, eval_metric=params["eval_metric"], verbose=params["verbose"])
+            random_state=seed, eval_metric=params["eval_metric"], silent=True)
     if classifier == "KNN":
         from sklearn.neighbors import KNeighborsClassifier
         clf = KNeighborsClassifier(n_neighbors=params['K'], random_state=seed)
     if classifier == "RANDOMFOREST":
         from sklearn.ensemble import RandomForestClassifier
         clf = RandomForestClassifier(max_depth=params['max_depth'],\
-            n_jobs=params["n_jobs"], random_state=seed, verbose=params["verbose"])
+            n_jobs=params["n_jobs"], random_state=seed)
     if classifier == "XGBOOST":
         from xgboost import XGBClassifier
         clf = XGBClassifier(max_depth=params['max_depth'],\
-            n_jobs=params["n_jobs"], random_state=seed, verbose=params["verbose"])
+            n_jobs=params["n_jobs"], random_state=seed)
     
     return clf
 
@@ -154,6 +158,8 @@ def main():
             st.success('Upload complete. Status: SUCCESS')
             train = pd.read_csv(train_df)
             test = pd.read_csv(test_df)
+            train.columns = map(str.lower, train.columns)
+            test.columns = map(str.lower, test.columns)
             train["marker"] = "train"
             test["marker"] = "test"
             df = pd.concat([train, test], axis=0)
@@ -171,16 +177,23 @@ def main():
                 st.write("DATETIME COLUMNS PARSED SUCCESSFULLY.")
             else:
                 st.write("NO DATE COLUMN FOUND.")
+
+
             full_df = None
+            full_train = None
+            full_test = None
+
+
             st.dataframe(df.head(50))
             st.write("SHAPE: ", df.shape)
 
-            id_ = st.selectbox('SELECT FEATURE FOR FINAL TEST FILE (ex: ID): ', id_catcher(df))
+            id_ = st.multiselect('SELECT *ONE* FEATURE FOR FINAL TEST FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
             
             train_data = df[df["marker"] == "train"]
             # test_data = df[df["marker"] == "test"]
-            target_col = st.multiselect("Choose preferred target column: ", train_data.columns.tolist(), ["target" if "target" in train_data.columns else train_data.columns.tolist()[-1]])
+            target_col = st.multiselect("Choose preferred target column: ", train.columns.tolist(), ["target" if "target" in train.columns else train.columns.tolist()[-1]])
 
+            st.write(target_col)
             if target_col:
                 target_col = list(target_col)
                 target_cp, ax = plt.subplots()
@@ -190,6 +203,7 @@ def main():
                 st.warning("TARGET VARIABLE NOT YET DECLARED")
             st.write("INITIALIZING DATE FEATURE ENGINEERING VIA SANGO SHRINE....")
             date_parser_v1(df, datetime_)
+            df = df.apply(lambda col: col.str.lower() if (col.dtype == 'object') else col)
             st.dataframe(df)
             st.write("DATE FEATURE ENGINEERING COMPLETE")
             num_df = df.select_dtypes(include=[np.number]).shape[1]
@@ -204,7 +218,7 @@ def main():
                 '''#see categorical columns
 df.select_dtypes(include=['object']).columns
                 ''', language='python')
-                st.write(cat_cols[:5]))
+                st.write(cat_cols[:5])
             st.subheader("Data Summary")
             st.write(df.describe().T)
 
@@ -216,16 +230,12 @@ df.select_dtypes(include=['object']).columns
             pre_miss_df = pd.concat([train_data, test_data], axis=0)
             target_var = train_data[target_col[0]]
             missing_df = pd.DataFrame(data=np.round((pre_miss_df.isnull().sum()/pre_miss_df.shape[0])*100,1), columns=["missing (%)"])
+            st.dataframe(missing_df.T)
             if missing_df["missing (%)"].any(): #check for nans (True if any) 
-                st.dataframe(missing_df.T)
-                keep = st.slider("KEEP COLUMNS WITH MISSING DATA (%)", 0, 100, 10, 30)
-                if isinstance(keep, numbers.Number):
-                    keep_cols = missing_df[missing_df["missing (%)"] <= keep].index
-                    keep_cols = list(keep_cols)
-                    # keep_cols.remove(str(target_col[0]))
-
-                else:
-                    st.warning("VALUE MUST BE AN INTEGER")
+                keep = st.slider("KEEP COLUMNS WITH MISSING DATA (%)", 0, 100, 50, 10)
+            
+                keep_cols = missing_df[missing_df["missing (%)"] <= int(keep)].index
+                keep_cols = list(keep_cols)
 
               
                 handle_nan = st.selectbox(label="HANDLE NANs", options=["MODE","MEDIAN", "MEAN"])
@@ -242,18 +252,18 @@ df.select_dtypes(include=['object']).columns
                     full_test = test_data[keep_cols].fillna(test_data[keep_cols].mean().iloc[0])
                
                 else:
-                    st.write("NO SELECTED WAY TO HANDLE NAN")
+                    st.write("NO SELECTED WAY TO HANDLE NAN") #precaution
 
 
-                st.write("MISSING DATA ELIMINATED!")
+                st.write("MISSING DATA PADDED")
             else:
                 st.write("NO MISSING DATA")
 
             if full_train is not None and full_test is not None:
-                new_df = pd.concat([full_train, full_test], axis=0)
+                new_df = pd.concat([full_train, full_test], axis=0) #use padded data
             else:
-                new_df = pre_miss_df
-            st.dataframe(new_df)
+                new_df = pre_miss_df #use this since missing data wasn't present
+            st.dataframe(new_df.head(50))
             st.write("SHAPE: ", new_df.shape)
             if new_df.shape[1] > 50:
                 st.write("ABSOLUTE CORRELATION WITH TARGET VARIABLE")
@@ -268,6 +278,12 @@ df.select_dtypes(include=['object']).columns
             new_df_cols = list(new_df.columns)
             if target_col[0] in list(new_df.columns):
                 new_df_cols.remove(target_col[0])
+            if id_[0] in list(new_df.columns):
+                new_df_cols.remove(id_[0])
+
+
+            st.subheader("PLOTTING POSSIBLE RELATIONSHIP WITH TARGET FEATURE")
+            check_relationship(new_df_cols, target_col[0], full_train)
 
             #handle features excluded
             remove_feat = st.multiselect("SELECT FEATURE(S) TO DROP", new_df_cols)
@@ -275,25 +291,27 @@ df.select_dtypes(include=['object']).columns
                 new_df = remove_features(new_df, remove_feat)
             else:
                 st.write("KEEPING ALL FEATURES")
-            st.dataframe(new_df)
+
+            st.dataframe(new_df.head(50))
             st.write(new_df.shape)
 
-            test_id = new_df[new_df["marker"] == "test"][id_]
-            st.write(test_id)
+            test_id = new_df[new_df["marker"] == "test"][id_] #store ID for test dataframe
 
-            
-            new_df = remove_big_unique(dataframe=new_df, cols=new_df.columns)
-            st.dataframe(new_df)
+            #remove monotonic or unique features
+            new_df = remove_mono_unique(dataframe=new_df, cols=new_df.columns)
+            st.dataframe(new_df.head(50))
+            st.write(new_df.shape)
             st.write("MONOTONIC AND UNIQUE FEATURES REMOVED")
-            st.write(new_df.shape)
 
-            not_dummy = ["target", "marker"]
+
+            not_dummy = [target_col[0], "target", "marker", "claim", "pred"]
             exclude_cols = [col for col in new_df.columns if col not in not_dummy]
             exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
             dum_df = pd.get_dummies(new_df, columns=exclude_cols, drop_first=True)
-            st.dataframe(dum_df)
-            st.write("CATEGORICAL FEATURES ENCODED")
+            st.dataframe(dum_df.head(100))
             st.write(dum_df.shape)
+            st.write("CATEGORICAL FEATURES ENCODED")
+
 
             dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
             dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
@@ -315,20 +333,26 @@ df.select_dtypes(include=['object']).columns
             else:
                 st.write("NO SCALER SELECTED")
 
-            st.write("Train Data")
-            st.dataframe(Xtrain)
+            st.subheader("Train Data")
+            st.dataframe(Xtrain.head(1000))
+            st.write(Xtrain.shape)
             
-            st.write("Test Data")
-            st.dataframe(test)
+            st.subheader("Test Data")
+            st.dataframe(test.head(1000))
+            st.write(test.shape)
 
             st.header('TRAINING/TESTING SECTION')
 
             models = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
             model = st.sidebar.selectbox('Select option: ', models)
-            seed = st.sidebar.slider('SEED', 1, 300, step=1)
+            seed = st.sidebar.slider('SEED', 1, 50, step=1)
 
             params = model_parameter(model)
             model_ = build_model(model, params, seed)
+
+            #ensuring producibility
+            np.random.seed(seed=seed)
+            np.random.RandomState(seed=seed)
 
             X_train, X_test, y_train, y_test = train_test_split(Xtrain, dum_train_y, test_size=.4, random_state=seed)
             X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=.7, random_state=seed)
@@ -348,10 +372,17 @@ df.select_dtypes(include=['object']).columns
             st.write("TEST ACCURACY: ", metrics.accuracy_score(y_test_, y_test))
             st.write("TEST F1 SCORE: ", metrics.f1_score(y_test_, y_test))
 
-
-            pred_dict = {"ID": test_id.values, target_col[0]: model_.predict(test)}
-            test_pred = pd.DataFrame.from_dict(pred_dict)
-            st.write(test_pred)
+            test_id[target_col[0]] =  model_.predict(test)
+            if test_id is not None:
+                # pred_dict = {"ID": np.array(test_id.values), target_col[0]: model_.predict(test)}
+                # test_pred = pd.DataFrame.from_dict(pred_dict)
+                st.write(test_id.head(1000))
+                st.write(test_id.shape)
+                st.write("")
+                st.write("MODEL ESTABLISHED")
+                st.balloons()
+            else:
+                st.write("YOUR MODEL FAILED YTO COMPLETE")
             
 
         elif train_df:
