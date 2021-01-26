@@ -1,6 +1,6 @@
 
 
-# ML-CPT
+# ML-CPT (MACHINE LEARNING-CLEAN PROCESS TRAIN)
 ---
 
 I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid.
