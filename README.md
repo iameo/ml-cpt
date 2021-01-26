@@ -3,7 +3,7 @@
 # ML-CPT
 ---
 
-I made this web app to assist ML begineers, as well as experts to run a model fast with adequate visualization to aid.
+I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid.
 
 
 SUPPORTS ONLY CLASSIFICATION TASKS (for now..)
