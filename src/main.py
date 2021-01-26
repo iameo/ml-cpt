@@ -37,8 +37,8 @@ def date_parser_v1(df,date_cols):
             df[feat +'_day'] = df[feat].dt.day
             df[feat +'_month'] = df[feat].dt.month
             df[feat +'_hr'] = df[feat].dt.hour
-            df[feat +'_min'] = df[feat].dt.mins
-            df[feat +'_secs'] = df[feat].dt.seconds
+            df[feat +'_min'] = df[feat].dt.minute
+            df[feat +'_secs'] = df[feat].dt.second
         except Exception as e:
             st.write("DATE EXCEPTION: ", str(e))
         else:   
@@ -60,7 +60,7 @@ def date_catcher(dataframe):
 
 #     return new_dataframe
 
-
+@st.cache(suppress_st_warning=True)
 def check_relationship(cols, target, dataframe):
     for feat in cols:
         feat_target_plot, r_ax = plt.subplots()
@@ -80,6 +80,7 @@ def remove_features(dataframe, cols):
 
 
 #remove features that are unique or monotonic
+@st.cache(suppress_st_warning=True)
 def remove_big_unique(dataframe, cols):
     cols = list(cols)
     for col in cols:
@@ -89,24 +90,25 @@ def remove_big_unique(dataframe, cols):
             continue
 
 #set parameter
+@st.cache(allow_output_mutation=True)
 def model_parameter(classifier):
     param = dict()
     if classifier == "CATBOOST":
-        lr = st.sidebar.slider('LEARNING_RATE', 0.01, 1.0)
+        lr = st.sidebar.slider('LEARNING_RATE', 0.01, 1.0, step=0.1)
         eval_metric = st.sidebar.selectbox("EVAL_METRIC", ["F1", "AUC"])
         param["eval_metric"] = eval_metric
         param['learning_rate'] = lr
         param["verbose"] = True
     if classifier == "SVM":
-        C = st.sidebar.slider('C', 0.001, 10.0)
+        C = st.sidebar.slider('C', 0.001, 10.0, step=0.1)
         param['C'] = C
     if classifier == "RANDOMFOREST":
-        depth = st.sidebar.slider('MAX_DEPTH', 1, 40)
+        depth = st.sidebar.slider('MAX_DEPTH', 1, 40, step=1)
         param['n_jobs'] = -1
         param['max_depth'] = depth
         param["verbose"] = 1
     if classifier == "XGBOOST":
-        depth = st.sidebar.slider('MAX_DEPTH', 1, 40)
+        depth = st.sidebar.slider('MAX_DEPTH', 1, 40, step=1)
         param['n_jobs'] = -1
         param['max_depth'] = depth
         param["verbose"] = 1
@@ -114,7 +116,7 @@ def model_parameter(classifier):
     return param
 
 
-    
+@st.cache(allow_output_mutation=True)
 def build_model(classifier, params, seed):
     clf = None
     if classifier == "CATBOOST":
@@ -135,15 +137,15 @@ def build_model(classifier, params, seed):
     
     return clf
 
-@st.cache(suppress_st_warning=True)
+
 def main():
     st.title('MACHINE LEARNING FOR YOU..')
-    options = ['DEFAULT', 'CUSTOM']
+    options = ['WELCOME', 'EXPLORE']
     option = st.sidebar.selectbox('Select option: ', options)
 
-    if option == 'DEFAULT':
+    if option == options[0]:
         pass
-    elif option == 'CUSTOM':
+    elif option == options[1]:
         try:
             user_data = st.file_uploader("Upload dataset: ", type=['csv','xlsx'])
         except Exception as e:
@@ -151,6 +153,7 @@ def main():
         if user_data is not None:
             st.success('Upload complete. Status: SUCCESS')
             df = pd.read_csv(user_data)
+            df = df.loc[:, ~df.columns.duplicated()].drop_duplicates()
             keep_cols = df.columns
             datetime_ = st.multiselect('SELECT FEATURES OF TYPE DATE: ', df.columns.tolist(), date_catcher(df))
             datetime_ = list(datetime_)
@@ -158,11 +161,10 @@ def main():
                 for col_ in datetime_:
                     try:
                         df[col_] = pd.to_datetime(df[col_], infer_datetime_format=True, format="%y%m%d")
-                        # st.write("done")
                     except Exception as e:
                         st.write("EXCEPTION (can be ignored): ", str(e))
                     # else:
-                    #     st.write("DATETIME PARSED SUCCESSFULLY!")
+                st.write("DATETIME COLUMNS PARSED SUCCESSFULLY.")
             else:
                 st.write("NO DATE COLUMN FOUND.")
             full_df = None
@@ -223,15 +225,7 @@ df.select_dtypes(include=['object']).columns
                     full_df = df[keep_cols].fillna(df[keep_cols].mean().iloc[0])
                 else:
                     st.write("NO SELECTED WAY TO HANDLE NAN")
-                # fillNans = st.number_input("FILL NANS WITH ", -999)
-                # if fillNans:
-                #     st.write(type(fillNans))
-                #     full_df = df[keep_cols].fillna(fillNans)
-                #     st.dataframe(full_df)
-                #     st.write("NANS UPDATED WITH VALUE: {fillNans}".format(fillNans=fillNans))
-                # else:
-                #     # full_df = None
-                #     pass
+
 
                 st.write("MISSING DATA ELIMINATED!")
             else:
@@ -252,12 +246,11 @@ df.select_dtypes(include=['object']).columns
                 sns.heatmap(new_df.corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
                 st.pyplot(heatmap_fig)
             
-            # st.write(type(target_col[0]))
-            # check_relationship(cols=cols[:10], target=target_col[0], dataframe=new_df)
-            # target_var = new_df[target_col[0]]
+
             new_df_cols = list(new_df.columns)
             if target_col[0] in list(new_df.columns):
                 new_df_cols.remove(target_col[0])
+
             #handle features excluded
             remove_feat = st.multiselect("SELECT FEATURE(S) TO DROP", new_df_cols)
             if remove_feat:
@@ -277,10 +270,6 @@ df.select_dtypes(include=['object']).columns
             st.write("CATEGORICAL FEATURES ENCODED")
             st.write(dum_df.shape)
 
-            # st.dataframe(pd.get_dummies(new_df, drop_first=True))
-            # st.dataframe(pd.get_dummies(new_df))
-            # new_df.drop(target_var, axis=1, inplace=True)
-            
             scaler = ["STANDARDSCALER", "MIN-MAX SCALER"]
             scaler_option = st.selectbox("SCALE DATA USING: ", scaler)
             if scaler_option == scaler[0]:
@@ -293,8 +282,11 @@ df.select_dtypes(include=['object']).columns
                 Xtrain = pd.DataFrame(mm.fit_transform(dum_df), columns=dum_df.columns)
             else:
                 st.write("NO SCALER SELECTED")
+
             st.dataframe(Xtrain)
-            st.title('MACHINE LEARNING FOR YOU..')
+
+            st.title('TRAINING/TESTING SECTION')
+
             models = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
             model = st.sidebar.selectbox('Select option: ', models)
             seed = st.sidebar.slider('SEED', 1, 300)
