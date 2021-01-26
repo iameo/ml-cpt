@@ -232,6 +232,7 @@ def download_csv(dataframe, name, info):
     return f'<a href="data:file/csv_file;base64,{b64}" download="{name}">{info}</a>'
 
 
+@st.cache(suppress_st_warning=True)
 def get_content(path):
     url = 'https://raw.githubusercontent.com/iameo/ml-cpt/master/' + path
     resp = urllib.request.urlopen(url)
@@ -368,6 +369,9 @@ df.select_dtypes(include=['object']).columns
             else:
                 st.write("NO MISSING DATA")
 
+            #conserve memory
+            df = None
+
             if full_train is not None and full_test is not None:
                 new_df = pd.concat([full_train, full_test], axis=0) #use padded data
             else:
@@ -421,7 +425,8 @@ df.select_dtypes(include=['object']).columns
             st.write(dum_df.shape)
             st.write("CATEGORICAL FEATURES ENCODED")
 
-
+            new_df = None
+            
             dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
             dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
             dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
@@ -460,6 +465,7 @@ df.select_dtypes(include=['object']).columns
 
             params = model_parameter(model)
             model_ = build_model(model, params, seed)
+
 
 
             test_resp, y_test_, y_test = initialize_model(model=model_, Xtrain_file=Xtrain, ytrain_file=dum_train_y, test_file=test, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
