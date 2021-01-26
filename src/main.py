@@ -23,7 +23,7 @@ import sys
 
 import datetime
 import base64
-
+import urllib
 
 
 
@@ -150,7 +150,7 @@ def download_csv(dataframe, name, info):
 
 
 def get_content(path):
-    url = ''
+    url = 'https://raw.githubusercontent.com/iameo/ml-cpt/master/' + path
     resp = urllib.request.urlopen(url)
     return resp.read().decode("utf-8")
 
@@ -158,13 +158,14 @@ def get_content(path):
 def main():
     st.title('MACHINE LEARNING FOR YOU..')
 
-    # welcome_text = st.markdown(get_content("welcome.md"))
+    welcome_text = st.markdown(get_content("README.md"))
     options = ['WELCOME', 'EXPLORE']
     option = st.sidebar.selectbox('Select option: ', options)
 
     if option == options[0]:
         pass
     elif option == options[1]:
+        welcome_text.empty()
         try:
             train_df = st.file_uploader("Upload Train dataset: ", type=['csv','xlsx'])
             test_df = st.file_uploader("Upload Test dataset: ", type=['csv','xlsx'])
