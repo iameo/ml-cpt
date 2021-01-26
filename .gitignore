@@ -1,8 +1,11 @@
 .vscode/
 __pycache__/
+__pycache__*
 env/
 *.log
 *_info
 *.csv
 *.xlsx
 fg/
+envv/
+v_env/

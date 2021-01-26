@@ -9,7 +9,7 @@ import numbers
 #plots
 import matplotlib.pyplot as plt
 import seaborn as sns
-import altair as alt
+# import altair as alt
 
 #sklearn - data, metrics and algos
 from sklearn import datasets #tests
@@ -426,7 +426,7 @@ df.select_dtypes(include=['object']).columns
             st.write("CATEGORICAL FEATURES ENCODED")
 
             new_df = None
-            
+
             dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
             dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
             dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
