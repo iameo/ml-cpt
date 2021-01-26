@@ -26,11 +26,11 @@ import datetime
 
 
 
-plt.xticks(rotation=45)
+
 sns.set_theme(style="darkgrid")
 
 #parse datetime columns
-def date_parser_v1(df,date_cols):
+def date_parser_v1(df, date_cols):
     for feat in date_cols:
         try:
             df[feat +'_year'] = df[feat].dt.year
@@ -51,14 +51,12 @@ def date_catcher(dataframe):
     cols = [col for col in dataframe.columns if 'date' in col.lower()]
     return cols
 
-# def date_parser(dataframe, date_ = False, time_ = False):
-#     datetime_column = [col for col in dataframe.columns if isinstance(col, datetime.datetime)]
-#     new_dataframe = None
-#     new_dataframe['day'] = ''
-#     new_dataframe['month'] = ''
-#     new_dataframe['year'] = ''
 
-#     return new_dataframe
+def id_catcher(dataframe):
+    df_cols = dataframe.columns
+    cols = [col if 'id' in col.lower() else list(df_cols) for col in df_cols]
+    return cols
+
 
 @st.cache(suppress_st_warning=True)
 def check_relationship(cols, target, dataframe):
@@ -75,7 +73,7 @@ def check_relationship(cols, target, dataframe):
 
 def remove_features(dataframe, cols):
     cols = list(cols)
-    dataframe.drop(cols, axis=1, inplace=True)
+    dataframe = dataframe.drop(cols, axis=1)
     return dataframe
 
 
@@ -85,9 +83,10 @@ def remove_big_unique(dataframe, cols):
     cols = list(cols)
     for col in cols:
         if dataframe[col].is_unique or dataframe[col].is_monotonic:
-            dataframe.drop(col, axis=1, inplace=True)
+            dataframe = dataframe.drop(col, axis=1)
         else:
             continue
+    return dataframe
 
 #set parameter
 @st.cache(allow_output_mutation=True)
@@ -147,12 +146,17 @@ def main():
         pass
     elif option == options[1]:
         try:
-            user_data = st.file_uploader("Upload dataset: ", type=['csv','xlsx'])
+            train_df = st.file_uploader("Upload Train dataset: ", type=['csv','xlsx'])
+            test_df = st.file_uploader("Upload Test dataset: ", type=['csv','xlsx'])
         except Exception as e:
             st.warning(e)
-        if user_data is not None:
+        if train_df is not None and test_df is not None:
             st.success('Upload complete. Status: SUCCESS')
-            df = pd.read_csv(user_data)
+            train = pd.read_csv(train_df)
+            test = pd.read_csv(test_df)
+            train["marker"] = "train"
+            test["marker"] = "test"
+            df = pd.concat([train, test], axis=0)
             df = df.loc[:, ~df.columns.duplicated()].drop_duplicates()
             keep_cols = df.columns
             datetime_ = st.multiselect('SELECT FEATURES OF TYPE DATE: ', df.columns.tolist(), date_catcher(df))
@@ -168,18 +172,19 @@ def main():
             else:
                 st.write("NO DATE COLUMN FOUND.")
             full_df = None
-            st.dataframe(df.head(10))
+            st.dataframe(df.head(50))
             st.write("SHAPE: ", df.shape)
-            if "marker" not in df.columns:
-                st.write("EXCEPTION (can be ignored): NO MARKER COLUMN INDICATED FOR TARGET VARIABLE")
-            target_col = st.multiselect("Choose preferred target column: ", df.columns.tolist(), ["target" if "target" in df.columns else df.columns.tolist()[-1]])
-            # st.write(["target" if "target" in df.columns else df.columns.tolist()[-1]])
+
+            id_ = st.selectbox('SELECT FEATURE FOR FINAL TEST FILE (ex: ID): ', id_catcher(df))
             
+            train_data = df[df["marker"] == "train"]
+            # test_data = df[df["marker"] == "test"]
+            target_col = st.multiselect("Choose preferred target column: ", train_data.columns.tolist(), ["target" if "target" in train_data.columns else train_data.columns.tolist()[-1]])
+
             if target_col:
                 target_col = list(target_col)
-                st.write(target_col)
                 target_cp, ax = plt.subplots()
-                sns.countplot(data = df, x=target_col[0])
+                sns.countplot(data = train_data, x=target_col[0])
                 st.pyplot(target_cp)
             else:
                 st.warning("TARGET VARIABLE NOT YET DECLARED")
@@ -199,30 +204,43 @@ def main():
                 '''#see categorical columns
 df.select_dtypes(include=['object']).columns
                 ''', language='python')
-                st.write(list(df.select_dtypes(include='object'))[:5], "\n[you may want to encode]")
+                st.write(cat_cols[:5]))
             st.subheader("Data Summary")
             st.write(df.describe().T)
-            pre_miss_df = df.copy()
-            target_var = df[target_col[0]]
-            missing_df = pd.DataFrame(data=np.round((df.isnull().sum()/df.shape[0])*100,1), columns=["missing (%)"])
-            if missing_df["missing (%)"].any(): #check for nans (True if any)
+
+            train_data = df[df["marker"] == "train"]
+            test_data = df[df["marker"] == "test"]
+
+            train_data = train_data.dropna(subset=[target_col[0]])
+            test_data[target_col[0]].fillna(value="N/A", inplace=True) #
+            pre_miss_df = pd.concat([train_data, test_data], axis=0)
+            target_var = train_data[target_col[0]]
+            missing_df = pd.DataFrame(data=np.round((pre_miss_df.isnull().sum()/pre_miss_df.shape[0])*100,1), columns=["missing (%)"])
+            if missing_df["missing (%)"].any(): #check for nans (True if any) 
                 st.dataframe(missing_df.T)
-                keep = st.number_input("KEEP COLUMNS WITH MISSING DATA (%)", 50)
+                keep = st.slider("KEEP COLUMNS WITH MISSING DATA (%)", 0, 100, 10, 30)
                 if isinstance(keep, numbers.Number):
                     keep_cols = missing_df[missing_df["missing (%)"] <= keep].index
                     keep_cols = list(keep_cols)
-                    keep_cols.remove(str(target_col[0]))
+                    # keep_cols.remove(str(target_col[0]))
 
                 else:
                     st.warning("VALUE MUST BE AN INTEGER")
-                
+
+              
                 handle_nan = st.selectbox(label="HANDLE NANs", options=["MODE","MEDIAN", "MEAN"])
                 if handle_nan == "MODE":
-                    full_df = df[keep_cols].fillna(df[keep_cols].mode().iloc[0])
+                    full_train = train_data[keep_cols].fillna(train_data[keep_cols].mode().iloc[0])
+                    full_test = test_data[keep_cols].fillna(test_data[keep_cols].mode().iloc[0])
+
                 elif handle_nan == "MEDIAN":
-                    full_df = df[keep_cols].fillna(df[keep_cols].median().iloc[0])
+                    full_train = train_data[keep_cols].fillna(train_data[keep_cols].median().iloc[0])
+                    full_test = test_data[keep_cols].fillna(test_data[keep_cols].median().iloc[0])
+     
                 elif handle_nan == "MEAN":
-                    full_df = df[keep_cols].fillna(df[keep_cols].mean().iloc[0])
+                    full_train = train_data[keep_cols].fillna(train_data[keep_cols].mean().iloc[0])
+                    full_test = test_data[keep_cols].fillna(test_data[keep_cols].mean().iloc[0])
+               
                 else:
                     st.write("NO SELECTED WAY TO HANDLE NAN")
 
@@ -231,19 +249,19 @@ df.select_dtypes(include=['object']).columns
             else:
                 st.write("NO MISSING DATA")
 
-            if full_df is not None:
-                new_df = full_df
+            if full_train is not None and full_test is not None:
+                new_df = pd.concat([full_train, full_test], axis=0)
             else:
                 new_df = pre_miss_df
-            st.dataframe(new_df.head(20))
+            st.dataframe(new_df)
             st.write("SHAPE: ", new_df.shape)
             if new_df.shape[1] > 50:
                 st.write("ABSOLUTE CORRELATION WITH TARGET VARIABLE")
-                st.write(new_df.corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
+                st.write(full_train.corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
                 st.write("[correlation is not causation]")
             else:
                 heatmap_fig, ax=plt.subplots()
-                sns.heatmap(new_df.corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
+                sns.heatmap(full_train.corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
                 st.pyplot(heatmap_fig)
             
 
@@ -260,49 +278,88 @@ df.select_dtypes(include=['object']).columns
             st.dataframe(new_df)
             st.write(new_df.shape)
 
-            remove_big_unique(dataframe=new_df, cols=new_df.columns)
+            test_id = new_df[new_df["marker"] == "test"][id_]
+            st.write(test_id)
+
+            
+            new_df = remove_big_unique(dataframe=new_df, cols=new_df.columns)
             st.dataframe(new_df)
             st.write("MONOTONIC AND UNIQUE FEATURES REMOVED")
             st.write(new_df.shape)
 
-            dum_df = pd.get_dummies(new_df, drop_first=True)
+            not_dummy = ["target", "marker"]
+            exclude_cols = [col for col in new_df.columns if col not in not_dummy]
+            exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
+            dum_df = pd.get_dummies(new_df, columns=exclude_cols, drop_first=True)
             st.dataframe(dum_df)
             st.write("CATEGORICAL FEATURES ENCODED")
             st.write(dum_df.shape)
+
+            dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
+            dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
+            dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
+        
 
             scaler = ["STANDARDSCALER", "MIN-MAX SCALER"]
             scaler_option = st.selectbox("SCALE DATA USING: ", scaler)
             if scaler_option == scaler[0]:
                 from sklearn.preprocessing import StandardScaler
                 ss = StandardScaler()
-                Xtrain = pd.DataFrame(ss.fit_transform(dum_df), columns=dum_df.columns)
+                Xtrain = pd.DataFrame(ss.fit_transform(dum_train), columns=dum_train.columns)
+                test = pd.DataFrame(ss.transform(dum_test), columns=dum_test.columns)
             elif scaler_option == scaler[1]:
                 from sklearn.preprocessing import MinMaxScaler
                 mm = MinMaxScaler()
-                Xtrain = pd.DataFrame(mm.fit_transform(dum_df), columns=dum_df.columns)
+                Xtrain = pd.DataFrame(mm.fit_transform(dum_train), columns=dum_train.columns)
+                test = pd.DataFrame(mm.transform(dum_test), columns=dum_test.columns)
             else:
                 st.write("NO SCALER SELECTED")
 
+            st.write("Train Data")
             st.dataframe(Xtrain)
+            
+            st.write("Test Data")
+            st.dataframe(test)
 
-            st.title('TRAINING/TESTING SECTION')
+            st.header('TRAINING/TESTING SECTION')
 
             models = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
             model = st.sidebar.selectbox('Select option: ', models)
-            seed = st.sidebar.slider('SEED', 1, 300)
+            seed = st.sidebar.slider('SEED', 1, 300, step=1)
 
             params = model_parameter(model)
             model_ = build_model(model, params, seed)
 
-            X_train, X_test, y_train, y_test = train_test_split(Xtrain, target_var, test_size=.3, random_state=seed)
-
+            X_train, X_test, y_train, y_test = train_test_split(Xtrain, dum_train_y, test_size=.4, random_state=seed)
+            X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=.7, random_state=seed)
             st.write("BUILDING MODEL WITH: ", model , model_.get_params())
+            st.write("TRAIN-VAL-TEST SPLIT: 60%:30%:10%")
+            st.write(X_train.shape, X_val.shape, X_test.shape)
             model_.fit(X_train, y_train)
-            y_pred = model_.predict(X_test)
-            accuracy = metrics.accuracy_score(y_test, y_pred)
-            st.write(accuracy)
+            y_val_ = model_.predict(X_val)
+            y_test_ = model_.predict(X_test)
+            st.write("VALIDATION PARTITION REPORT")
+            accuracy_val = metrics.classification_report(y_val_, y_val)
+            st.write(accuracy_val)
+            st.write("TEST PARTITION REPORT")
+            accuracy_test = metrics.classification_report(y_test_, y_test)
+            st.write(accuracy_test)
+
+            st.write("TEST ACCURACY: ", metrics.accuracy_score(y_test_, y_test))
+            st.write("TEST F1 SCORE: ", metrics.f1_score(y_test_, y_test))
+
+
+            pred_dict = {"ID": test_id.values, target_col[0]: model_.predict(test)}
+            test_pred = pd.DataFrame.from_dict(pred_dict)
+            st.write(test_pred)
             
 
+        elif train_df:
+            st.write("YOU NEED TEST DATASET TOO")
+        elif test_df:
+            st.write("YOU NEED TRAIN DATASET AS WELL")
+        else:
+            st.write("ABEG UPLOAD TRAIN AND TEST DATASET")
     else:
         st.write('INVALID ARGUMENT! ')
 
