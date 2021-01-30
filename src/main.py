@@ -19,8 +19,9 @@ import datetime
 
 
 from funcs import (get_content, reduce_mem_usage, date_catcher, date_parser_v1, check_relationship, remove_features,\
-     remove_mono_unique, download_csv, model_parameter, build_model, initialize_model, download_csv)
+     remove_mono_unique, download_csv, model_parameter, build_model, initialize_model, download_csv, feature_scaling)
 
+# from raw_code import load_csv
 
 
 pd.options.mode.chained_assignment = None
@@ -59,6 +60,9 @@ def main():
         except Exception as e:
             st.warning(e)
         if train_df is not None and test_df is not None:
+            # ##st.code("""
+            # df.select_dtypes(include=[np.number]).shape
+            # """, language='python')
             st.success('Upload complete. Status: SUCCESS')
             train = pd.read_csv(train_df)
             test = pd.read_csv(test_df)
@@ -72,8 +76,8 @@ def main():
             df = df.loc[:, ~df.columns.duplicated()].drop_duplicates()
             keep_cols = df.columns
             datetime_ = st.multiselect('SELECT FEATURES OF TYPE DATE: ', df.columns.tolist(), date_catcher(df))
-            datetime_ = list(datetime_)
             if datetime_:
+                datetime_ = list(datetime_)
                 for col_ in datetime_:
                     try:
                         df[col_] = pd.to_datetime(df[col_], infer_datetime_format=True, format="%y%m%d")
@@ -90,16 +94,18 @@ def main():
             full_test = None
 
 
-            st.dataframe(df.head(50))
+            st.dataframe(df)
             st.write("SHAPE: ", df.shape)
 
             id_ = st.multiselect('SELECT *ONE* FEATURE FOR FINAL TEST FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
+            if not id_:
+                st.warning("YOU REALLY SHOULD PICK AN IDENTIFY FOR YOUR TEST SUBMISSION FILE.")
             test_id = test[id_] #store ID for test dataframe
             train_data = df[df["marker"] == "train"]
             # test_data = df[df["marker"] == "test"]
             target_col = st.multiselect("Choose preferred target column: ", train.columns.tolist(), ["target" if "target" in train.columns else train.columns.tolist()[-1]])
 
-            st.write(target_col)
+            # st.write(target_col)
             if target_col:
                 target_col = list(target_col)
                 target_cp, ax = plt.subplots()
@@ -107,23 +113,31 @@ def main():
                 st.pyplot(target_cp)
             else:
                 st.warning("TARGET VARIABLE NOT YET DECLARED")
-            st.write("INITIALIZING DATE FEATURE ENGINEERING VIA SANGO SHRINE....")
-            date_parser_v1(df, datetime_)
+            
+            if len(datetime_) < 1:
+                st.write("NO DATETIME COLUMN FOUND. SKIPPING......")
+            else:
+                st.write("INITIALIZING DATE FEATURE ENGINEERING VIA SANGO SHRINE....")
+                date_parser_v1(df, datetime_)
+            
             df = df.apply(lambda col: col.str.lower() if (col.dtype == 'object') else col)
+
             st.dataframe(df)
+
             st.write("DATE FEATURE ENGINEERING COMPLETE")
+            
             num_df = df.select_dtypes(include=[np.number]).shape[1]
             obj_df = df.select_dtypes(include='object').shape[1]
             if num_df:
                 st.write('Numerical column count: ', num_df)
-                st.code('''df.select_dtypes(include=[np.number]).shape''', language='python')
+                #st.code('''df.select_dtypes(include=[np.number]).shape''', language='python')
             if obj_df:
                 cat_cols = [col for col in df.columns if col not in list(df.select_dtypes(include=[np.number]))]
                 st.write('Categorical column count: ', obj_df)
-                st.code(
-                '''#see categorical columns
-df.select_dtypes(include=['object']).columns
-                ''', language='python')
+                ##st.code(
+#                 '''#see categorical columns
+# df.select_dtypes(include=['object']).columns
+#                 ''', language='python')
                 st.write(cat_cols[:5])
             st.subheader("Data Summary")
             st.write(df.describe().T)
@@ -213,8 +227,9 @@ df.select_dtypes(include=['object']).columns
             st.write("MONOTONIC AND UNIQUE FEATURES REMOVED")
 
 
-            not_dummy = [target_col[0], "target", "marker", "claim", "prediction", "response"]
-            exclude_cols = [col for col in new_df.columns if col not in not_dummy]
+            NOT_DUMMY = [target_col[0], "target", "marker", "claim", "prediction", "response"] #features we do not need the dummy for
+
+            exclude_cols = [col for col in new_df.columns if col not in NOT_DUMMY]
             exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
             dum_df = pd.get_dummies(new_df, columns=exclude_cols, drop_first=True)
             st.dataframe(dum_df.head(100))
@@ -227,58 +242,51 @@ df.select_dtypes(include=['object']).columns
             dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
             dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
         
-
-            scaler_option = st.selectbox("SCALE DATA USING: ", SCALER)
-            if scaler_option == SCALER[0]:
-                from sklearn.preprocessing import StandardScaler
-                ss = StandardScaler()
-                Xtrain = pd.DataFrame(ss.fit_transform(dum_train), columns=dum_train.columns)
-                test = pd.DataFrame(ss.transform(dum_test), columns=dum_test.columns)
-            elif scaler_option == SCALER[1]:
-                from sklearn.preprocessing import MinMaxScaler
-                mm = MinMaxScaler()
-                Xtrain = pd.DataFrame(mm.fit_transform(dum_train), columns=dum_train.columns)
-                test = pd.DataFrame(mm.transform(dum_test), columns=dum_test.columns)
-            else:
-                st.write("NO SCALER METHOD SELECTED")
+            #feature scaling
+            train_scaled, test_scaled = feature_scaling(dum_train, dum_test)
 
             st.subheader("Train Data")
             
-            st.dataframe(Xtrain.head(1000))
-            st.write(Xtrain.shape)
-            st.markdown(download_csv(Xtrain, "cpt_train.csv", info="DOWNLOAD TRAIN FILE"), unsafe_allow_html=True)
+            st.dataframe(train_scaled.head(1000))
+            st.write(train_scaled.shape)
+            st.markdown(download_csv(train_scaled, "cpt_train.csv", info="DOWNLOAD TRAIN FILE"), unsafe_allow_html=True)
             
             st.subheader("Test Data")
             
-            st.dataframe(test.head(1000))
-            st.write(test.shape)
-            st.markdown(download_csv(test, "cpt_test.csv", info="DOWNLOAD TEST FILE"), unsafe_allow_html=True)
+            st.dataframe(test_scaled.head(1000))
+            st.write(test_scaled.shape)
+            st.markdown(download_csv(test_scaled, "cpt_test.csv", info="DOWNLOAD TEST FILE"), unsafe_allow_html=True)
 
             st.header('TRAINING/TESTING SECTION')
 
             model = st.sidebar.selectbox('Select Algorithm: ', MODELS)
             
-
+            
+            #algorithm selection and hyperparameter tuning
             params = model_parameter(model)
             model_ = build_model(model, params, seed)
 
 
 
-            test_resp, y_test_, y_test = initialize_model(model=model_, Xtrain_file=Xtrain, ytrain_file=dum_train_y, test_file=test, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
+            train_, val_, test_, test_resp = initialize_model(model=model_, Xtrain_file=train_scaled, ytrain_file=dum_train_y, \
+                                                        test_file=test_scaled, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
 
-            if test_resp is not None and y_test_ is not None and y_test is not None:
-                st.write("TEST ACCURACY: ", sklearn.metrics.accuracy_score(y_test_, y_test))
-                st.write("TEST F1 SCORE: ", sklearn.metrics.f1_score(y_test_, y_test))
-                # pred_dict = {"ID": np.array(test_id.values), target_col[0]: model_.predict(test)}
-                # test_pred = pd.DataFrame.from_dict(pred_dict)
+            if test_resp is not None:
+                # st.write("Train Accuracy (on train data: ", sklearn.metrics.accuracy_score(train_[0], train_[1]))
+                st.write("VALIDATION Accuracy (on train data): ", np.round(sklearn.metrics.accuracy_score(val_[0], val_[1])*100, 1), '(%)')
+                st.write("TEST Accuracy (on train data): ", np.round(sklearn.metrics.accuracy_score(test_[0], test_[1])*100, 1), '(%)')
+
+                st.write("TEST F1 SCORE (on train data): ", np.round(sklearn.metrics.f1_score(test_[0], test_[1])*100, 1), '(%)')
+
                 st.write("")
                 st.write(test_resp.head(1000))
                 st.write(test_resp.shape)
                 st.write("")
                 st.write("MODEL ESTABLISHED. YAY!")
                 st.balloons()
+                train_scaled = test_scaled = None
             else:
-                st.write("YOUR MODEL FAILED YTO COMPLETE")
+                st.write("YOUR MODEL FAILED TO COMPLETE")
             
 
         elif train_df:
