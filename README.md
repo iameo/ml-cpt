@@ -6,7 +6,7 @@
 I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid.
 
 
-SUPPORTS ONLY CLASSIFICATION TASKS (for now..)
+***SUPPORTS ONLY CLASSIFICATION TASKS*** (for now..)
 
 
 
@@ -14,7 +14,7 @@ SUPPORTS ONLY CLASSIFICATION TASKS (for now..)
 ### How to Use
 ---
 - The app expects that you have two separate files(train and test) so be sure to include those
-- ...the rest is handled as long as the required model isn't tasking(very little wrangling onboard at the moment)
+- ...the rest is handled as long as the required model isn't tasking(very little wrangling onboard to only deliver baseline model)
 
 
 
@@ -47,3 +47,7 @@ SUPPORTS ONLY CLASSIFICATION TASKS (for now..)
 ### Tip
 ---
 If your dataset fails to parse correctly then it's a sign for you to contribute to the project. Be sure to checkout on a new branch for any feature/fix you add. :)
+
+
+#### UNSUPPORTED DATASET 
+If you have a dataset(classification based) that fails using this web app, kindly include it here as a PR.
