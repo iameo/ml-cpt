@@ -77,7 +77,7 @@ def reduce_mem_usage(props):
             else:
                 props[col] = props[col].astype(np.float32)
     mem_usg = props.memory_usage().sum() / 1024**2 
-    mem_reduced = 100*mem_usg/start_mem_usg
+    mem_reduced = np.round(100*mem_usg/start_mem_usg, 2)
     return props, mem_reduced
 
 
@@ -150,6 +150,25 @@ def remove_mono_unique(dataframe, cols):
     return dataframe
 
 
+#feature scaling
+def feature_scaling(train, test):
+    SCALER = ["STANDARDSCALER", "MIN-MAX SCALER"]
+    scaler_option = st.selectbox("SCALE DATA USING: ", SCALER)
+    if scaler_option == SCALER[0]:
+        from sklearn.preprocessing import StandardScaler
+        ss = StandardScaler()
+        train_scaled = pd.DataFrame(ss.fit_transform(train), columns=train.columns)
+        test_scaled = pd.DataFrame(ss.transform(test), columns=test.columns)
+    elif scaler_option == SCALER[1]:
+        from sklearn.preprocessing import MinMaxScaler
+        mm = MinMaxScaler()
+        train_scaled = pd.DataFrame(mm.fit_transform(train), columns=train.columns)
+        test_scaled = pd.DataFrame(mm.transform(test), columns=test.columns)
+    else:
+        st.write("NO SCALER METHOD SELECTED")
+    return train_scaled, test_scaled
+
+
 #set parameter
 def model_parameter(classifier):
     param = dict()
@@ -203,6 +222,7 @@ def initialize_model(model, Xtrain_file, ytrain_file, test_file, test_dataframe,
     st.write("TRAIN-VAL-TEST SPLIT: 60%:30%:10%")
     st.write(X_train.shape, X_val.shape, X_test.shape)
     model.fit(X_train, y_train)
+    # y_train_ = model.predict(X_train, y_train)
     y_val_ = model.predict(X_val)
     y_test_ = model.predict(X_test)
     st.write("VALIDATION PARTITION REPORT")
@@ -211,10 +231,12 @@ def initialize_model(model, Xtrain_file, ytrain_file, test_file, test_dataframe,
     st.write("TEST PARTITION REPORT")
     accuracy_test = sklearn.metrics.classification_report(y_test_, y_test)
     st.write(accuracy_test)
-
+    train_ = 0 #fix
+    val_ = (y_val_, y_val)
+    test_ = (y_test_, y_test)
     test_dataframe[target_var_] =  model.predict(test_file)
 
-    return test_dataframe, y_test_, y_test
+    return train_, val_, test_, test_dataframe
 
 
 def download_csv(dataframe, name, info):
