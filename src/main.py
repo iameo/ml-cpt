@@ -337,6 +337,9 @@ df.select_dtypes(include=['object'])
     else:
         st.write('INVALID ARGUMENT! ')
 
+    st.markdown("<h5 style='text-align: center'>Made with <span style='color:red'>&hearts;</span> By <a href='https://www.twitter.com/__oemmanuel__'>Emmanuel</a> </h5>", unsafe_allow_html=True)
+
+
 
 if __name__ == "__main__":
     main()
