@@ -113,21 +113,25 @@ def id_catcher(dataframe):
 
 # @st.cache(suppress_st_warning=True)
 def check_relationship(cols, target, dataframe):
-    #plot first 15 features that meets the condition
+    #plot first 20 features that meets the condition
     df_shape = dataframe.shape[0]
     if df_shape >= 1000:
         n = 1000/5 #divide n by 4 and plot if it meets the condition
     else:
         n = 800/5
-    for feat in cols[:15]:
+    for feat in cols[:20]:
         feat_target_plot, r_ax = plt.subplots()
         #do not plot target against target or IDs against target(too many unique values)
-        if feat.lower() == target.lower() or "id" in feat.lower() or len(set(dataframe[feat])) >= int(n/4) or dataframe[feat].is_unique or dataframe[feat].is_monotonic:
+        if feat.lower() == target.lower() or "id" in feat.lower() or feat == "marker" or len(set(dataframe[feat])) >= int(n/4) or dataframe[feat].is_unique or dataframe[feat].is_monotonic:
             continue
         else:
-            sns.barplot(data = dataframe, x=feat, y=target, ax=r_ax)
-            r_ax.set_xticklabels(r_ax.get_xticklabels(), rotation=90, fontsize=6)
-            st.pyplot(feat_target_plot)
+            try:
+                sns.barplot(data = dataframe, x=feat, y=target, ax=r_ax)
+                r_ax.set_xticklabels(r_ax.get_xticklabels(), rotation=90, fontsize=6)
+            except Exception as e:
+                st.write("EXCEPTION: ", str(e))
+            else:
+                st.pyplot(feat_target_plot)
 
 
 def remove_features(dataframe, cols):
