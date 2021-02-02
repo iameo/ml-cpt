@@ -3,7 +3,7 @@
 # ML-CPT (MACHINE LEARNING-CLEAN PROCESS TRAIN)
 ---
 
-I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid.
+I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid. Most results would show a corresponding code snippet in order to know what's happenning under the hood.
 
 
 ***SUPPORTS ONLY CLASSIFICATION TASKS*** (for now..)
@@ -13,6 +13,7 @@ I made this web app to assist ML Beginners, as well as Experts to run a model fa
 
 ### How to Use
 ---
+****use the EXPLORE section****
 - The app expects that you have two separate files(train and test) so be sure to include those
 - ...the rest is handled as long as the required model isn't tasking(very little wrangling onboard to only deliver baseline model)
 
@@ -42,6 +43,7 @@ I made this web app to assist ML Beginners, as well as Experts to run a model fa
 - Auto dataset split (60% - Train, 30% - Validation and 10% - Test)
 - Algorithm selection (Catboost, Knn, RandomForest and Xgboost)
 - Detailed report on prediction
+- Save Test prediction to obtain a baseline model score on your Hackathon
 
 
 ### Tip
