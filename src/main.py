@@ -21,7 +21,7 @@ import datetime
 from funcs import (get_content, reduce_mem_usage, date_catcher, date_parser_v1, check_relationship, remove_features,\
      remove_mono_unique, download_csv, model_parameter, build_model, initialize_model, download_csv, feature_scaling)
 
-# from raw_code import load_csv
+from raw_code import df_head, df_shape, plot_target, heatmap_code, heatmap_sns
 
 
 pd.options.mode.chained_assignment = None
@@ -95,7 +95,14 @@ def main():
 
 
             st.dataframe(df)
+
+            #show code
+            df_head()
+
             st.write("SHAPE: ", df.shape)
+
+            #show code
+            df_shape()
 
             id_ = st.multiselect('SELECT *ONE* FEATURE FOR FINAL TEST FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
             if not id_:
@@ -111,6 +118,7 @@ def main():
                 target_cp, ax = plt.subplots()
                 sns.countplot(data = train_data, x=target_col[0])
                 st.pyplot(target_cp)
+                plot_target()
             else:
                 st.warning("TARGET VARIABLE NOT YET DECLARED")
             
@@ -130,18 +138,26 @@ def main():
             obj_df = df.select_dtypes(include='object').shape[1]
             if num_df:
                 st.write('Numerical column count: ', num_df)
-                #st.code('''df.select_dtypes(include=[np.number]).shape''', language='python')
+                st.code('''df.select_dtypes(include=[np.number])''', language='python')
             if obj_df:
                 cat_cols = [col for col in df.columns if col not in list(df.select_dtypes(include=[np.number]))]
                 st.write('Categorical column count: ', obj_df)
-                ##st.code(
-#                 '''#see categorical columns
-# df.select_dtypes(include=['object']).columns
-#                 ''', language='python')
+                
+                #show code
+                st.code(
+                '''#see categorical columns
+df.select_dtypes(include=['object'])
+                ''', language='python')
+
                 st.write(cat_cols[:5])
             st.subheader("Data Summary")
             st.write(df.describe().T)
 
+            #show code
+            st.code('''
+            df.describe()
+            ''', language='python')
+            
             train_data = df[df["marker"] == "train"]
             test_data = df[df["marker"] == "test"]
 
@@ -150,6 +166,12 @@ def main():
             pre_miss_df = pd.concat([train_data, test_data], axis=0)
             target_var = train_data[target_col[0]]
             missing_df = pd.DataFrame(data=np.round((pre_miss_df.isnull().sum()/pre_miss_df.shape[0])*100,1), columns=["missing (%)"])
+            
+            #show code
+            st.code('''
+             pd.DataFrame(data=np.round((train.isnull().sum()/train.shape[0])*100,1), columns=["missing (%)"])
+             ''', language='python')
+
             st.dataframe(missing_df.T)
             if missing_df["missing (%)"].any(): #check for nans (True if any) 
                 keep = st.slider("KEEP COLUMNS WITH MISSING DATA (%)", 0, 100, 50, 10)
@@ -159,6 +181,7 @@ def main():
 
               
                 handle_nan = st.selectbox(label="HANDLE NANs", options=["MODE","MEDIAN", "MEAN"])
+                """Read on SimpleImputer"""
                 if handle_nan == "MODE":
                     full_train = train_data[keep_cols].fillna(train_data[keep_cols].mode().iloc[0])
                     full_test = test_data[keep_cols].fillna(test_data[keep_cols].mode().iloc[0])
@@ -192,10 +215,17 @@ def main():
                 st.write("ABSOLUTE CORRELATION WITH TARGET VARIABLE")
                 st.write(new_df[new_df["marker"] == "train"].corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
                 st.write("[correlation is not causation]")
+
+                #show code
+                heatmap_code()
+
             else:
                 heatmap_fig, ax=plt.subplots()
                 sns.heatmap(new_df[new_df["marker"] == "train"].corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
                 st.pyplot(heatmap_fig)
+
+                #show code
+                heatmap_sns()
             
 
             new_df_cols = list(new_df.columns)
@@ -212,6 +242,12 @@ def main():
             remove_feat = st.multiselect("SELECT FEATURE(S) TO DROP", new_df_cols)
             if remove_feat:
                 new_df = remove_features(new_df, remove_feat)
+
+                #show code
+                st.code('''
+                df.dropna([list of columns to drop]), axis=1, inplace=True)
+                ''', language='python')
+
             else:
                 st.write("KEEPING ALL FEATURES")
 
@@ -278,12 +314,15 @@ def main():
 
                 st.write("TEST F1 SCORE (on train data): ", np.round(sklearn.metrics.f1_score(test_[0], test_[1])*100, 1), '(%)')
 
-                st.write("")
                 st.write(test_resp.head(1000))
                 st.write(test_resp.shape)
                 st.write("")
                 st.write("MODEL ESTABLISHED. YAY!")
                 st.balloons()
+
+                st.markdown(download_csv(test_resp, "cpt_test_pred.csv", info="DOWNLOAD TEST PREDICTION FILE"), unsafe_allow_html=True)
+            
+
                 train_scaled = test_scaled = None
             else:
                 st.write("YOUR MODEL FAILED TO COMPLETE")
