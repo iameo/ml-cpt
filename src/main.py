@@ -236,7 +236,7 @@ df.select_dtypes(include=['object'])
 
 
             st.subheader("PLOTTING POSSIBLE RELATIONSHIP WITH TARGET FEATURE")
-            check_relationship(new_df_cols, target_col[0], full_train)
+            check_relationship(new_df_cols, target_col[0], new_df)
 
             #handle features excluded
             remove_feat = st.multiselect("SELECT FEATURE(S) TO DROP", new_df_cols)
