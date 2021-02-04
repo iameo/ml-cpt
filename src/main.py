@@ -267,7 +267,9 @@ df.select_dtypes(include=['object'])
 
             exclude_cols = [col for col in new_df.columns if col not in NOT_DUMMY]
             exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
-            dum_df = pd.get_dummies(new_df, columns=exclude_cols, drop_first=True)
+            dum_df = pd.get_dummies(new_df[exclude_cols], drop_first=True)
+            dum_df["marker"] = new_df["marker"].copy()
+            dum_df[target_col[0]] = new_df[target_col[0]].copy()
             st.dataframe(dum_df.head(100))
             st.write(dum_df.shape)
             st.write("CATEGORICAL FEATURES ENCODED")
