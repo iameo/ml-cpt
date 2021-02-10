@@ -19,7 +19,8 @@ import datetime
 
 
 from funcs import (get_content, reduce_mem_usage, date_catcher, date_parser_v1, check_relationship, remove_features,\
-     remove_mono_unique, download_csv, model_parameter, build_model, initialize_model, download_csv, feature_scaling)
+     remove_mono_unique, download_csv, model_parameter, build_model, initialize_model, download_csv, feature_scaling,\
+         balance_out)
 
 from raw_code import df_head, df_shape, plot_target, heatmap_code, heatmap_sns
 
@@ -39,21 +40,21 @@ SCALER = ["STANDARDSCALER", "MIN-MAX SCALER"]
 def main():
     st.title('MACHINE LEARNING FOR YOU..')
 
-    welcome_text = st.markdown(get_content("README.md"))
+    
     options = ['WELCOME', 'EXPLORE']
     option = st.sidebar.selectbox('Select option: ', options)
 
     if option == options[0]:
-        pass
+        welcome_text = st.markdown(get_content("README.md"))
     elif option == options[1]:
         
         #ensuring producibility
         seed = st.sidebar.slider('SEED', 1, 50, step=1)
 
         np.random.seed(seed=seed)
-        np.random.RandomState(seed=seed)
+        # np.random.RandomState(seed=seed)
         
-        welcome_text.empty()
+        # welcome_text.empty()
         try:
             train_df = st.file_uploader("Upload Train dataset: ", type=['csv','xlsx'])
             test_df = st.file_uploader("Upload Test dataset: ", type=['csv','xlsx'])
@@ -266,7 +267,7 @@ df.select_dtypes(include=['object'])
             NOT_DUMMY = [target_col[0], "target", "marker", "claim", "prediction", "response"] #features we do not need the dummy for
 
             exclude_cols = [col for col in new_df.columns if col not in NOT_DUMMY]
-            exclude_cols = list(set(exclude_cols).intersection(list(new_df.select_dtypes(include='object').columns)))
+            exclude_cols = list(set(exclude_cols).intersection(list(new_df.columns)))
             dum_df = pd.get_dummies(new_df[exclude_cols], drop_first=True)
             dum_df["marker"] = new_df["marker"].copy()
             dum_df[target_col[0]] = new_df[target_col[0]].copy()
@@ -277,23 +278,45 @@ df.select_dtypes(include=['object'])
             new_df = None
 
             dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
-            dum_train_y = dum_df[dum_df["marker"] == "train"][target_col[0]].astype(int)
+            dum_train_y = pd.DataFrame(list(dum_df.iloc[:dum_train.shape[0]][target_col[0]].astype('int')), columns=["target"])
             dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
-        
+            
             #feature scaling
             train_scaled, test_scaled = feature_scaling(dum_train, dum_test)
-
+            
             st.subheader("Train Data")
             
-            st.dataframe(train_scaled.head(1000))
+            st.dataframe(train_scaled.head(200))
             st.write(train_scaled.shape)
             st.markdown(download_csv(train_scaled, "cpt_train.csv", info="DOWNLOAD TRAIN FILE"), unsafe_allow_html=True)
             
             st.subheader("Test Data")
             
-            st.dataframe(test_scaled.head(1000))
+            st.dataframe(test_scaled.head(200))
             st.write(test_scaled.shape)
             st.markdown(download_csv(test_scaled, "cpt_test.csv", info="DOWNLOAD TEST FILE"), unsafe_allow_html=True)
+
+            #downsample/upsample
+            # _train = _target = None
+            if len(set(dum_train_y["target"])) == 2: #binary classification
+                classones = int((dum_train_y[dum_train_y["target"] == 1].count()/dum_train_y.shape[0])*100)
+                classzeroes = int((dum_train_y[dum_train_y["target"] == 0].count()/dum_train_y.shape[0])*100)
+                if classones >= 70 or classzeroes >= 70:
+                    st.warning("IMBALANCED TRAINING SET DETECTED!")
+                    st.write("CLASS 1(",classones,"%) to CLASS 0(",classzeroes,"%)")
+                    _train, _target, balance_type = balance_out(train_scaled, dum_train_y, seed)
+                    
+                    if balance_type != "DEFAULT":
+                        st.subheader("Train Data (BALANCED)")
+                        
+                        st.dataframe(_train.head(50))
+                        st.write(_train.shape)
+                        st.markdown(download_csv(_train, "cpt_train_balanced.csv", info="DOWNLOAD BALANCED TRAIN FILE"), unsafe_allow_html=True)
+            
+                else:
+                    _train, _target = train_scaled.copy(), dum_train_y.copy()
+            else:
+                st.write("")
 
             st.header('TRAINING/TESTING SECTION')
 
@@ -305,8 +328,7 @@ df.select_dtypes(include=['object'])
             model_ = build_model(model, params, seed)
 
 
-
-            train_, val_, test_, test_resp = initialize_model(model=model_, Xtrain_file=train_scaled, ytrain_file=dum_train_y, \
+            train_, val_, test_, test_resp = initialize_model(model=model_, Xtrain_file=_train, ytrain_file=_target["target"], \
                                                         test_file=test_scaled, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
 
             if test_resp is not None:
@@ -319,10 +341,10 @@ df.select_dtypes(include=['object'])
                 st.write(test_resp.head(1000))
                 st.write(test_resp.shape)
                 st.write("")
+                st.markdown(download_csv(test_resp, "MLCPT_TEST_PRED.csv", info="DOWNLOAD TEST PREDICTION FILE"), unsafe_allow_html=True)
                 st.write("MODEL ESTABLISHED. YAY!")
                 st.balloons()
 
-                st.markdown(download_csv(test_resp, "cpt_test_pred.csv", info="DOWNLOAD TEST PREDICTION FILE"), unsafe_allow_html=True)
             
 
                 train_scaled = test_scaled = None
