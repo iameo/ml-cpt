@@ -17,6 +17,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 
 
+#
+import imblearn
 
 import sklearn
 import sys
@@ -242,6 +244,40 @@ def initialize_model(model, Xtrain_file, ytrain_file, test_file, test_dataframe,
 
     return train_, val_, test_, test_dataframe
 
+
+
+def balance_out(train, target, seed):
+    BALANCE_OPTS = ["DEFAULT","SMOTE", "RANDOM OVERSAMPLER", "RANDOM UNDERSAMPLER"]
+    balance_type = st.selectbox("DOWNSAMPLE/UPSAMPLE YOUR DATA: ", BALANCE_OPTS)
+
+    if balance_type == BALANCE_OPTS[0]:
+        return train, target
+    elif balance_type == BALANCE_OPTS[0]:
+        smote = imblearn.over_sampling.SMOTE(random_state=seed, n_jobs=-1)
+        new_train, new_target = smote.fit_resample(train, target.ravel())
+        new_train = pd.DataFrame(new_train, columns=train.columns)
+        new_target = pd.DataFrame(new_target, columns=["target"])
+        st.write(f"Upsampled using SMOTE. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
+        return new_train, new_target
+    elif balance_type == BALANCE_OPTS[1]:
+        randomover = imblearn.over_sampling.RandomOverSampler(random_state=seed)
+        new_train, new_target = randomover.fit_resample(train, target.ravel())
+        new_train = pd.DataFrame(new_train, columns=train.columns)
+        new_target = pd.DataFrame(new_target, columns=["target"])
+        st.write(f"Upsampled using RandomOverSampler. \nTrain set (class 1): {sum(new_target == 1)} \nTrain set (class 0): {sum(new_target == 0)}")
+        return new_train, new_target
+    elif balance_type == BALANCE_OPTS[2]:
+        randomunder = imblearn.under_sampling.RandomUnderSampler()
+        new_train, new_target = randomunder.fit_resample(train, target.ravel())
+        new_train = pd.DataFrame(new_train, columns=train.columns)
+        new_target = pd.DataFrame(new_target, columns=["target"])
+        st.write(f"Downsampled using RandomUnderSampler. \nTrain set (class 1): {sum(new_target == 1)} \nTrain set (class 0): {sum(new_target == 0)}")
+        return new_train, new_target
+    else:
+        st.write("INVALID ARGUMENT")  #likelihood of this is low but to avoid exception
+        return train, target
+
+    
 
 def download_csv(dataframe, name, info):
     csv_file = dataframe.to_csv(index=False)
