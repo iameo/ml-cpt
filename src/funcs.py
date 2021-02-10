@@ -251,32 +251,28 @@ def balance_out(train, target, seed):
     balance_type = st.selectbox("DOWNSAMPLE/UPSAMPLE YOUR DATA: ", BALANCE_OPTS)
 
     if balance_type == BALANCE_OPTS[0]:
-        return train, target
-    elif balance_type == BALANCE_OPTS[0]:
+        return train, target, balance_type
+    elif balance_type == BALANCE_OPTS[1]:
         smote = imblearn.over_sampling.SMOTE(random_state=seed, n_jobs=-1)
-        new_train, new_target = smote.fit_resample(train, target.ravel())
+        new_train, new_target = smote.fit_resample(train, target["target"])
         new_train = pd.DataFrame(new_train, columns=train.columns)
         new_target = pd.DataFrame(new_target, columns=["target"])
         st.write(f"Upsampled using SMOTE. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
-        return new_train, new_target
-    elif balance_type == BALANCE_OPTS[1]:
-        randomover = imblearn.over_sampling.RandomOverSampler(random_state=seed)
-        new_train, new_target = randomover.fit_resample(train, target.ravel())
-        new_train = pd.DataFrame(new_train, columns=train.columns)
-        new_target = pd.DataFrame(new_target, columns=["target"])
-        st.write(f"Upsampled using RandomOverSampler. \nTrain set (class 1): {sum(new_target == 1)} \nTrain set (class 0): {sum(new_target == 0)}")
-        return new_train, new_target
+        return new_train, new_target, balance_type
     elif balance_type == BALANCE_OPTS[2]:
-        randomunder = imblearn.under_sampling.RandomUnderSampler()
-        new_train, new_target = randomunder.fit_resample(train, target.ravel())
+        randomover = imblearn.over_sampling.RandomOverSampler(random_state=seed)
+        new_train, new_target = randomover.fit_resample(train, target["target"])
         new_train = pd.DataFrame(new_train, columns=train.columns)
         new_target = pd.DataFrame(new_target, columns=["target"])
-        st.write(f"Downsampled using RandomUnderSampler. \nTrain set (class 1): {sum(new_target == 1)} \nTrain set (class 0): {sum(new_target == 0)}")
-        return new_train, new_target
-    else:
-        st.write("INVALID ARGUMENT")  #likelihood of this is low but to avoid exception
-        return train, target
-
+        st.write(f"Upsampled using RANDOMOVERSAMPLER. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
+        return new_train, new_target, balance_type
+    else: # balance_type == BALANCE_OPTS[3]
+        randomunder = imblearn.under_sampling.RandomUnderSampler(random_state=seed)
+        new_train, new_target = randomunder.fit_resample(train, target["target"])
+        new_train = pd.DataFrame(new_train, columns=train.columns)
+        new_target = pd.DataFrame(new_target, columns=["target"])
+        st.write(f"Downsampled using RandomUnderSampler. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
+        return new_train, new_target, balance_type
     
 
 def download_csv(dataframe, name, info):
