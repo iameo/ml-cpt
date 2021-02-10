@@ -15,7 +15,7 @@ I made this web app to assist ML Beginners, as well as Experts to run a model fa
 ---
 ****use the EXPLORE section****
 - The app expects that you have two separate files(train and test) so be sure to include those
-- ...the rest is handled as long as the required model isn't tasking(very little wrangling onboard to only deliver baseline model)
+- ...the rest is handled as long as the required model isn't tasking(very little wrangling onboard to only deliver baseline models)
 
 
 
@@ -41,6 +41,7 @@ I made this web app to assist ML Beginners, as well as Experts to run a model fa
 - Choose scaler (Standardization or Normalization)
 - Download your processed dataset
 - Auto dataset split (60% - Train, 30% - Validation and 10% - Test)
+- (NEW*) SMOTE, RANDOM OVER/UNDER SAMPLER FOR IMBALANCED DATASET!
 - Algorithm selection (Catboost, Knn, RandomForest and Xgboost)
 - Detailed report on prediction
 - Save Test prediction to obtain a baseline model score on your Hackathon
@@ -49,6 +50,13 @@ I made this web app to assist ML Beginners, as well as Experts to run a model fa
 ### Tip
 ---
 If your dataset fails to parse correctly then it's a sign for you to contribute to the project. Be sure to checkout on a new branch for any feature/fix you add. :)
+
+
+### PERFORMANCE
+---
+Did you get a score with our test prediction? Kindly include that below(screenshot or in writing)
+
+- UmojaHack Nigeria: AXA Vehicle Insurance Claim Challenge by UmojaHack Africa (on ZINDI) - ~37.6% (72nd ranking)
 
 
 #### UNSUPPORTED DATASET 
