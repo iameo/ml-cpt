@@ -110,10 +110,9 @@ def main():
                 st.warning("YOU REALLY SHOULD PICK AN IDENTIFY FOR YOUR TEST SUBMISSION FILE.")
             test_id = test[id_] #store ID for test dataframe
             train_data = df[df["marker"] == "train"]
-            # test_data = df[df["marker"] == "test"]
+
             target_col = st.multiselect("Choose preferred target column: ", train.columns.tolist(), ["target" if "target" in train.columns else train.columns.tolist()[-1]])
 
-            # st.write(target_col)
             if target_col:
                 target_col = list(target_col)
                 target_cp, ax = plt.subplots()
