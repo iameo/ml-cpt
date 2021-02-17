@@ -288,5 +288,5 @@ def get_content(path):
     try:
         resp = urllib.request.urlopen(url)
     except Exception as e:
-        return f'README requires connectivity (and cache)! But do proceed to Explore.'
+        return f'README requires connectivity (or cache)! But do proceed to Explore.'
     return resp.read().decode("utf-8")
