@@ -9,3 +9,7 @@ env/
 fg/
 envv/
 v_env/
+
+# Allow
+sample_data/train_data.csv
+sample_data/test_data.csv
