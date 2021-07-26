@@ -5,6 +5,7 @@
 
 I made this web app to assist ML Beginners, as well as Experts to run a model fast with adequate visualization to aid. Most results would show a corresponding code snippet in order to know what's happenning under the hood.
 
+[(Test) web-app: https://mlcpt.herokuapp.com]
 
 ***SUPPORTS ONLY CLASSIFICATION TASKS*** (for now..)
 
