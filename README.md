@@ -3,7 +3,7 @@
 # ML-CPT (MACHINE LEARNING-CLEAN PROCESS TRAIN)
 ---
 
-Get fast inference on your data, with a range of tools/algorithms in your disposal.
+Get fast inference on your data, with a range of tools/algorithms at your disposal.
 
 Visualization included. Code snippets to see what's running under the hood, too.
 
