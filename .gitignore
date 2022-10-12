@@ -2,6 +2,7 @@
 __pycache__/
 __pycache__*
 env/
+venv/
 *.log
 *_info
 *.csv
