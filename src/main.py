@@ -34,11 +34,25 @@ sns.set_theme(style="darkgrid")
 MODELS = ['CATBOOST', 'KNN', 'RANDOMFOREST', 'XGBOOST']
 SCALER = ["STANDARDSCALER", "MIN-MAX SCALER"]
 
+def date_month():
+    from datetime import datetime
+    today = datetime.now()
+    return today.month
+
+def on_completion():
+    month_today = date_month()
+    st.write(month_today)
+
+    if month_today in [10,12,1,2,3]:
+        st.snow() #not adapted
+    else:
+        st.balloons()
+
 
 
 
 def main():
-    st.title('MACHINE LEARNING FOR YOU..')
+    st.title('MACHINE LEARNING FOR YOU...')
 
     
     options = ['WELCOME', 'EXPLORE']
@@ -60,13 +74,15 @@ def main():
             test_df = st.file_uploader("Upload Test dataset: ", type=['csv','xlsx'])
         except Exception as e:
             st.warning(e)
-        if train_df is not None and test_df is not None:
+        if train_df and test_df:
             # ##st.code("""
             # df.select_dtypes(include=[np.number]).shape
             # """, language='python')
             st.success('Upload complete. Status: SUCCESS')
-            train = pd.read_csv(train_df)
-            test = pd.read_csv(test_df)
+
+            #train, test data loading...
+            train, test = pd.read_csv(train_df), pd.read_csv(test_df)
+
             train.columns = map(str.lower, train.columns)
             test.columns = map(str.lower, test.columns)
             train["marker"] = "train"
@@ -105,9 +121,9 @@ def main():
             #show code
             df_shape()
 
-            id_ = st.multiselect('SELECT *ONE* FEATURE FOR FINAL TEST FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
+            id_ = st.multiselect('SELECT *ONE* FEATURE FOR SUBMISSION FILE (ex: ID): ', test.columns.tolist(), ["id" if "id" in test.columns else test.columns.tolist()[0]])
             if not id_:
-                st.warning("YOU REALLY SHOULD PICK AN IDENTIFY FOR YOUR TEST SUBMISSION FILE.")
+                st.warning("YOU REALLY SHOULD PICK AN IDENTIFIER FOR YOUR TEST SUBMISSION FILE.")
             test_id = test[id_] #store ID for test dataframe
             train_data = df[df["marker"] == "train"]
 
@@ -125,8 +141,8 @@ def main():
             if len(datetime_) < 1:
                 st.write("NO DATETIME COLUMN FOUND. SKIPPING......")
             else:
-                st.write("INITIALIZING DATE FEATURE ENGINEERING VIA SANGO SHRINE....")
-                date_parser_v1(df, datetime_)
+                with st.spinner("INITIALIZING DATE FEATURE ENGINEERING VIA SANGO SHRINE...."):
+                    date_parser_v1(df, datetime_)
             
             df = df.apply(lambda col: col.str.lower() if (col.dtype == 'object') else col)
 
@@ -206,23 +222,28 @@ df.select_dtypes(include=['object'])
             df = None
 
             if full_train is not None and full_test is not None:
-                new_df = pd.concat([full_train, full_test], axis=0) #use padded data
+                try:
+                    new_df = pd.concat([full_train, full_test], axis=0) #use padded data
+                except Exception as e:
+                    st.exception(str(e))
             else:
                 new_df = pre_miss_df #use this since missing data wasn't present
             st.dataframe(new_df.head(50))
             st.write("SHAPE: ", new_df.shape)
             if new_df.shape[1] > 50:
                 st.write("ABSOLUTE CORRELATION WITH TARGET VARIABLE")
-                st.write(new_df[new_df["marker"] == "train"].corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
-                st.write("[correlation is not causation]")
+                with st.spinner('Generating Heatmap.....'):
+                    st.write(new_df[new_df["marker"] == "train"].corr()[target_col[0]].sort_values(by=target_col[0], ascending=False).T)
+                    st.write("[correlation is not causation]")
 
-                #show code
+                    #show code
                 heatmap_code()
 
             else:
-                heatmap_fig, ax=plt.subplots()
-                sns.heatmap(new_df[new_df["marker"] == "train"].corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
-                st.pyplot(heatmap_fig)
+                with st.spinner('Generating Heatmap...'):
+                    heatmap_fig, ax=plt.subplots()
+                    sns.heatmap(new_df[new_df["marker"] == "train"].corr(), annot=True, linewidth=.5, fmt='.1f', ax=ax)
+                    st.pyplot(heatmap_fig)
 
                 #show code
                 heatmap_sns()
@@ -257,7 +278,8 @@ df.select_dtypes(include=['object'])
             #test_id = new_df[new_df["marker"] == "test"][id_] #store ID for test dataframe
 
             #remove monotonic or unique features
-            new_df = remove_mono_unique(dataframe=new_df, cols=new_df.columns)
+            with st.spinner('Removing Monotonic or Unique features.....'):
+                new_df = remove_mono_unique(dataframe=new_df, cols=new_df.columns)
             st.dataframe(new_df.head(50))
             st.write(new_df.shape)
             st.write("MONOTONIC AND UNIQUE FEATURES REMOVED")
@@ -265,9 +287,11 @@ df.select_dtypes(include=['object'])
 
             NOT_DUMMY = [target_col[0], "target", "marker", "claim", "prediction", "response"] #features we do not need the dummy for
 
-            exclude_cols = [col for col in new_df.columns if col not in NOT_DUMMY]
-            exclude_cols = list(set(exclude_cols).intersection(list(new_df.columns)))
-            dum_df = pd.get_dummies(new_df[exclude_cols], drop_first=True)
+            with st.spinner('Getting dummies....'):
+                exclude_cols = [col for col in new_df.columns if col not in NOT_DUMMY]
+                exclude_cols = list(set(exclude_cols).intersection(list(new_df.columns)))
+                dum_df = pd.get_dummies(new_df[exclude_cols], drop_first=True)
+
             dum_df["marker"] = new_df["marker"].copy()
             dum_df[target_col[0]] = new_df[target_col[0]].copy()
             st.dataframe(dum_df.head(100))
@@ -277,11 +301,17 @@ df.select_dtypes(include=['object'])
             new_df = None
 
             dum_train = dum_df[dum_df["marker"] == "train"].drop([target_col[0], "marker"], axis=1)
-            dum_train_y = pd.DataFrame(list(dum_df.iloc[:dum_train.shape[0]][target_col[0]].astype('int')), columns=["target"])
-            dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
+            st.dataframe(dum_train.head())
+
+            try:
+                dum_train_y = pd.DataFrame(list(dum_df.iloc[:dum_train.shape[0]][target_col[0]].astype('int')), columns=["target"])
+                dum_test = dum_df[dum_df["marker"] == "test"].drop([target_col[0], "marker"], axis=1)
+            except Exception as e:
+                st.exception(e)
             
             #feature scaling
-            train_scaled, test_scaled = feature_scaling(dum_train, dum_test)
+            with st.spinner('Feature scaling....'):
+                train_scaled, test_scaled = feature_scaling(dum_train, dum_test)
             
             st.subheader("Train Data")
             
@@ -297,14 +327,24 @@ df.select_dtypes(include=['object'])
 
             #downsample/upsample
             # _train = _target = None
-            if len(set(dum_train_y["target"])) == 2: #binary classification
+            unique_class = len(set(dum_train_y['target']))
+            if unique_class < 2:
+                st.warning('less than two classes observed. Halting.....')
+                st.stop()
+            
+            BALANCE_OPTS = ["DEFAULT","SMOTE", "RANDOM OVERSAMPLER", "RANDOM UNDERSAMPLER"]
+            balance_type = st.selectbox("DOWNSAMPLE/UPSAMPLE YOUR DATA: ", BALANCE_OPTS)
+            if unique_class == 2: #binary classification
                 classones = int((dum_train_y[dum_train_y["target"] == 1].count()/dum_train_y.shape[0])*100)
                 classzeroes = int((dum_train_y[dum_train_y["target"] == 0].count()/dum_train_y.shape[0])*100)
                 if classones >= 70 or classzeroes >= 70:
                     st.warning("IMBALANCED TRAINING SET DETECTED!")
                     st.write("CLASS 1(",classones,"%) to CLASS 0(",classzeroes,"%)")
-                    _train, _target, balance_type = balance_out(train_scaled, dum_train_y, seed)
-                    
+                    with st.spinner(''):
+                        try:
+                            _train, _target = balance_out(balance_type, train_scaled, dum_train_y, seed, BALANCE_OPTS)
+                        except Exception as e:
+                            st.warning(str(e))
                     if balance_type != "DEFAULT":
                         st.subheader("Train Data (BALANCED)")
                         
@@ -314,8 +354,10 @@ df.select_dtypes(include=['object'])
             
                 else:
                     _train, _target = train_scaled.copy(), dum_train_y.copy()
-            else:
-                st.write("")
+            else: #unique_class > 2:
+                st.write(f"{unique_class} Classes Observed....")
+ 
+            
 
             st.header('TRAINING/TESTING SECTION')
 
@@ -327,7 +369,7 @@ df.select_dtypes(include=['object'])
             model_ = build_model(model, params, seed)
 
 
-            train_, val_, test_, test_resp = initialize_model(model=model_, Xtrain_file=_train, ytrain_file=_target["target"], \
+            _, val_, test_, test_resp = initialize_model(model=model_, Xtrain_file=_train, ytrain_file=_target["target"], \
                                                         test_file=test_scaled, test_dataframe=test_id, target_var_=target_col[0], seed=seed)
 
             if test_resp is not None:
@@ -342,11 +384,22 @@ df.select_dtypes(include=['object'])
                 st.write("")
                 st.markdown(download_csv(test_resp, "MLCPT_TEST_PRED.csv", info="DOWNLOAD TEST PREDICTION FILE"), unsafe_allow_html=True)
                 st.write("MODEL ESTABLISHED. YAY!")
+                target_count = len(set(test_resp['target']))
+                st.write(f'{target_count} classes observed. {test_resp.shape}')
+
+                with st.spinner('Prediction Data'):
+                    target_col = 'target'
+                    target_cp, ax = plt.subplots()
+                    sns.countplot(data=test_resp, x=target_col)
+                    st.pyplot(target_cp)
+                plot_target()
+
+                # celebrate = on_completion() #version does not support snow
+                # celebrate()
                 st.balloons()
+                
 
-            
-
-                train_scaled = test_scaled = None
+                del train_scaled, test_scaled, train, test, df
             else:
                 st.write("YOUR MODEL FAILED TO COMPLETE")
             
