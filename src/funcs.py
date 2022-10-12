@@ -118,9 +118,10 @@ def check_relationship(cols, target, dataframe):
     #plot first 20 features that meets the condition
     df_shape = dataframe.shape[0]
     if df_shape >= 1000:
-        n = 1000/5 #divide n by 4 and plot if it meets the condition
+        n = 200 #use 200 rows to find relationship
     else:
-        n = 800/5
+        n = df_shape/5 if df_shape >= 500 else 200
+
     for feat in cols[:20]:
         feat_target_plot, r_ax = plt.subplots()
         #do not plot target against target or IDs against target(too many unique values)
@@ -246,33 +247,31 @@ def initialize_model(model, Xtrain_file, ytrain_file, test_file, test_dataframe,
 
 
 
-def balance_out(train, target, seed):
-    BALANCE_OPTS = ["DEFAULT","SMOTE", "RANDOM OVERSAMPLER", "RANDOM UNDERSAMPLER"]
-    balance_type = st.selectbox("DOWNSAMPLE/UPSAMPLE YOUR DATA: ", BALANCE_OPTS)
-
-    if balance_type == BALANCE_OPTS[0]:
-        return train, target, balance_type
-    elif balance_type == BALANCE_OPTS[1]:
+def balance_out(balance_type, train, target, seed, opts):
+    BALANCE_OPTS = opts
+    if balance_type == BALANCE_OPTS[1]:
         smote = imblearn.over_sampling.SMOTE(random_state=seed, n_jobs=-1)
         new_train, new_target = smote.fit_resample(train, target["target"])
         new_train = pd.DataFrame(new_train, columns=train.columns)
         new_target = pd.DataFrame(new_target, columns=["target"])
         st.write(f"Upsampled using SMOTE. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
-        return new_train, new_target, balance_type
+        return new_train, new_target
     elif balance_type == BALANCE_OPTS[2]:
         randomover = imblearn.over_sampling.RandomOverSampler(random_state=seed)
         new_train, new_target = randomover.fit_resample(train, target["target"])
         new_train = pd.DataFrame(new_train, columns=train.columns)
         new_target = pd.DataFrame(new_target, columns=["target"])
         st.write(f"Upsampled using RANDOMOVERSAMPLER. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
-        return new_train, new_target, balance_type
-    else: # balance_type == BALANCE_OPTS[3]
+        return new_train, new_target
+    elif balance_type == BALANCE_OPTS[3]:
         randomunder = imblearn.under_sampling.RandomUnderSampler(random_state=seed)
         new_train, new_target = randomunder.fit_resample(train, target["target"])
         new_train = pd.DataFrame(new_train, columns=train.columns)
         new_target = pd.DataFrame(new_target, columns=["target"])
         st.write(f"Downsampled using RandomUnderSampler. \nTrain set (class 1): ", new_target[new_target["target"] == 1].shape[0], "\nTrain set (class 0): ", new_target[new_target["target"] == 0].shape[0])
-        return new_train, new_target, balance_type
+        return new_train, new_target
+    else:
+        return train, target #default
     
 
 def download_csv(dataframe, name, info):
@@ -288,5 +287,5 @@ def get_content(path):
     try:
         resp = urllib.request.urlopen(url)
     except Exception as e:
-        return f'README requires connectivity (or cache)! But do proceed to Explore.'
+        return 'README requires connectivity (or cache)! But do proceed to Explore.'
     return resp.read().decode("utf-8")
