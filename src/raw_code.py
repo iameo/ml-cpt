@@ -22,8 +22,8 @@ def plot_target():
                 fig, ax = plt.subplots()
                 sns.countplot(data = train_data, x="target")
                 plt.show()
-
-""", language='python')
+    """,
+    language='python')
 
 
 def heatmap_code():
