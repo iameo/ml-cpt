@@ -40,13 +40,16 @@ def date_month():
     return today.month
 
 def on_completion():
-    month_today = date_month()
-    st.write(month_today)
+    import random
 
-    if month_today in [10,12,1,2,3]:
-        st.snow() #not adapted
+    month_today = date_month()
+
+    celebratories = [st.snow, st.balloons]
+
+    if month_today in [11,12,1,2,3]: #winter/harmattan
+        return random.choice(celebratories) #either choose a snow celebatory effect or ballons
     else:
-        st.balloons()
+        return celebratories[1] #ballons
 
 
 
@@ -383,7 +386,7 @@ df.select_dtypes(include=['object'])
                 st.write(test_resp.shape)
                 st.write("")
                 st.markdown(download_csv(test_resp, "MLCPT_TEST_PRED.csv", info="DOWNLOAD TEST PREDICTION FILE"), unsafe_allow_html=True)
-                st.write("MODEL ESTABLISHED. YAY!")
+                st.write("PREDICTIONS COMPLETE!")
                 target_count = len(set(test_resp['target']))
                 st.write(f'{target_count} classes observed. {test_resp.shape}')
 
@@ -394,9 +397,8 @@ df.select_dtypes(include=['object'])
                     st.pyplot(target_cp)
                 plot_target()
 
-                # celebrate = on_completion() #version does not support snow
-                # celebrate()
-                st.balloons()
+                celebratory_type = on_completion() 
+                celebratory_type()
                 
 
                 del train_scaled, test_scaled, train, test, df
