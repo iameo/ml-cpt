@@ -6,3 +6,4 @@ env/
 *.csv
 *.xlsx
 fg/
+venv/
