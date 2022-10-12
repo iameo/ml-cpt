@@ -400,10 +400,8 @@ df.select_dtypes(include=['object'])
                 celebratory_type = on_completion() 
                 celebratory_type()
                 
-
-                del train_scaled, test_scaled, train, test, df
             else:
-                st.write("YOUR MODEL FAILED TO COMPLETE")
+                st.error("YOUR MODEL FAILED TO COMPLETE")
             
 
         elif train_df:
@@ -413,7 +411,7 @@ df.select_dtypes(include=['object'])
         else:
             st.write("ABEG UPLOAD TRAIN AND TEST DATASET")
     else:
-        st.write('INVALID ARGUMENT! ')
+        st.error('INVALID ARGUMENT!')
 
     st.markdown("<h5 style='text-align: center'>Made with <span style='color:red'>&hearts;</span> By <a href='https://www.twitter.com/__oemmanuel__'>Emmanuel</a> </h5>", unsafe_allow_html=True)
 
